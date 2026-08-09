@@ -1,0 +1,50 @@
+{
+  "name": "@arcade-cabinet/assets-search",
+  "version": "0.1.1",
+  "description": "CLI-first, multi-backend asset search + fetch toolkit for the fleet: itch.io owned library (fetch + curated promotion), the local NAS asset catalog (read-only query against assets-mcp's SQLite DB), and Polyhaven's public HDRI/texture/model catalog. TypeScript, no MCP required — designed to run from game scripts and CI.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://redacted-private-registry.example/api/packages/arcade-cabinet/npm/"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "bin": {
+    "assets-search": "./dist/cli.js"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --config vitest.config.ts",
+    "prepack": "pnpm run build",
+    "prepublishOnly": "pnpm run typecheck && pnpm run test && pnpm run build"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "node-unrar-js": "^2.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "esbuild": "^0.28.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.5"
+  }
+}
