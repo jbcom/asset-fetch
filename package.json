@@ -61,5 +61,16 @@
     "url": "https://github.com/jbcom/asset-fetch/issues"
   },
   "homepage": "https://github.com/jbcom/asset-fetch#readme",
-  "packageManager": "pnpm@11.23.0"
+  "packageManager": "pnpm@11.23.0",
+  "author": "Jon Bogaty <jon@jonbogaty.com>",
+  "keywords": [
+    "assets",
+    "asset-pipeline",
+    "itch.io",
+    "polyhaven",
+    "cli",
+    "game-dev",
+    "hdri",
+    "sqlite"
+  ]
 }
