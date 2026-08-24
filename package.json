@@ -1,5 +1,5 @@
 {
-  "name": "@jbcom/asset-fetch",
+  "name": "@jbdevprimary/asset-fetch",
   "version": "0.1.1",
   "description": "CLI-first asset fetch toolkit: fetch your owned itch.io library and promote a curated subset into a game project. A local SQLite asset catalog and a Polyhaven backend are planned (see ROADMAP.md). TypeScript, no MCP required — designed to run from game scripts and CI.",
   "type": "module",

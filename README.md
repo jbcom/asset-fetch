@@ -1,7 +1,7 @@
-# @jbcom/asset-fetch
+# @jbdevprimary/asset-fetch
 
-[![npm](https://img.shields.io/npm/v/@jbcom/asset-fetch.svg)](https://www.npmjs.com/package/@jbcom/asset-fetch)
-[![license](https://img.shields.io/npm/l/@jbcom/asset-fetch.svg)](./LICENSE)
+[![npm](https://img.shields.io/npm/v/@jbdevprimary/asset-fetch.svg)](https://www.npmjs.com/package/@jbdevprimary/asset-fetch)
+[![license](https://img.shields.io/npm/l/@jbdevprimary/asset-fetch.svg)](./LICENSE)
 
 CLI-first, multi-backend asset search + fetch toolkit: fetch the itch.io
 library you already own, then promote a curated subset into a game project.
@@ -9,8 +9,8 @@ library you already own, then promote a curated subset into a game project.
 ## Install
 
 ```bash
-npm install @jbcom/asset-fetch     # library use
-npx @jbcom/asset-fetch --help      # one-off CLI use
+npm install @jbdevprimary/asset-fetch     # library use
+npx @jbdevprimary/asset-fetch --help      # one-off CLI use
 ```
 
 Requires Node.js >= 24. Ships ESM and CommonJS with types for both.
@@ -49,7 +49,7 @@ CLI command — the slot→source mapping is game-specific. Import
 `promoteAssets` and write a short per-repo script:
 
 ```ts
-import { listExtractedAudioFiles, promoteAssets, writeAssetManifest } from "@jbcom/asset-fetch";
+import { listExtractedAudioFiles, promoteAssets, writeAssetManifest } from "@jbdevprimary/asset-fetch";
 
 const files = listExtractedAudioFiles("raw-assets/extracted");
 const { manifest } = promoteAssets({
@@ -115,7 +115,7 @@ writeAssetManifest("public/assets/audio", manifest);
   pile).
 - `writeAssetManifest(targetDir, manifest)` — writes `manifest.json`
   next to the promoted files, for the consuming game's own audio-loading
-  code (e.g. `@jbcom/gesture-audio`'s Howler sprite resolver) to
+  code (e.g. `@jbdevprimary/gesture-audio`'s Howler sprite resolver) to
   read rather than hardcoding filenames in game source.
 
 ## Security notes

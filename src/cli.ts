@@ -31,7 +31,7 @@ function usage(): string {
     "                              fetch + extract allow-listed owned packs into raw-assets/",
     "",
     "Promotion (raw-assets/ -> public/assets/) is intentionally NOT a CLI command —",
-    "import { promoteAssets } from '@jbcom/asset-fetch' and write a short",
+    "import { promoteAssets } from '@jbdevprimary/asset-fetch' and write a short",
     "per-repo script that defines the actual slot->source mapping for your game.",
     "",
     "Other backends (NAS catalog, Polyhaven) are planned — see ROADMAP.md.",

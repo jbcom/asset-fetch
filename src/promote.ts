@@ -108,7 +108,7 @@ export function promoteAssets(options: PromoteOptions): PromoteResult {
 }
 
 /** Write a `manifest.json` next to the promoted files — the consuming
- * game's own audio-loading code (e.g. @jbcom/gesture-audio's sprite
+ * game's own audio-loading code (e.g. @jbdevprimary/gesture-audio's sprite
  * resolver) reads this to build its sprite map, rather than hardcoding
  * filenames in game source. The written file is `{ generatedAt, slots }`,
  * where `generatedAt` is the current time as an ISO 8601 string (useful
