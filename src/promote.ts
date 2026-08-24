@@ -80,7 +80,7 @@ export function promoteAssets(options: PromoteOptions): PromoteResult {
 }
 
 /** Write a `manifest.json` next to the promoted files — the consuming
- * game's own audio-loading code (e.g. @arcade-cabinet/audio-engine's sprite
+ * game's own audio-loading code (e.g. @jbcom/gesture-audio's sprite
  * resolver) reads this to build its sprite map, rather than hardcoding
  * filenames in game source. */
 export function writeAssetManifest(targetDir: string, manifest: AssetManifestEntry[]): void {

@@ -3,7 +3,7 @@
 // No bundler — each source module maps 1:1 to a dist module.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import esbuild from "esbuild";
@@ -37,6 +37,20 @@ await esbuild.build({
   logLevel: "info",
 });
 
+// tsc emits a single set of ESM `.d.ts` files. Under the "require" condition
+// TypeScript reads those as ESM, so a CJS consumer sees types that claim to be
+// ESM while the JavaScript beside them is CJS — attw reports this as
+// "Masquerading as ESM" and publint warns about it. Mirror each declaration to
+// `.d.cts`, rewriting relative specifiers to `.cjs` so they resolve to the CJS
+// files rather than back to the ESM ones.
+const declarations = readdirSync(distDir).filter((file) => file.endsWith(".d.ts"));
+for (const file of declarations) {
+  const source = readFileSync(path.join(distDir, file), "utf8");
+  const rewritten = source.replace(/(from\s+"\.\/[^"]+)\.js"/g, '$1.cjs"');
+  const target = file.replace(/\.d\.ts$/, ".d.cts");
+  writeFileSync(path.join(distDir, target), rewritten);
+}
+
 console.log(
-  `Built ${entryPoints.length} entry point(s) -> dist/ (ESM+d.ts via tsc, CJS via esbuild)`
+  `Built ${entryPoints.length} entry point(s) -> dist/ (ESM+d.ts via tsc, CJS+d.cts via esbuild)`
 );

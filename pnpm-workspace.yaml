@@ -1,2 +1,7 @@
 packages:
   - .
+
+# esbuild ships a platform-specific binary via its postinstall script. Without
+# this the CJS half of the build has no compiler to run.
+allowBuilds:
+  esbuild: true

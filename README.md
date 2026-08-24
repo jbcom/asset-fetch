@@ -1,32 +1,39 @@
-# @arcade-cabinet/assets-search
+# @jbcom/asset-fetch
 
-CLI-first, multi-backend asset search + fetch toolkit for the fleet.
+[![npm](https://img.shields.io/npm/v/@jbcom/asset-fetch.svg)](https://www.npmjs.com/package/@jbcom/asset-fetch)
+[![license](https://img.shields.io/npm/l/@jbcom/asset-fetch.svg)](./LICENSE)
 
-**Shipped today:** the itch.io backend — owned-library fetch +
-curated-asset promotion, extracted from the near-identical
-`scripts/itch-library.mjs` + `scripts/fetch-itch-assets.mjs` +
-`scripts/promote-audio.mjs` copies duplicated across 11+
-arcade-cabinet fleet repos, one hardened implementation instead of a
-dozen drifting forks.
+CLI-first, multi-backend asset search + fetch toolkit: fetch the itch.io
+library you already own, then promote a curated subset into a game project.
 
-**Planned:** a NAS-catalog backend (read-only query against
-`assets-mcp`'s SQLite DB) and a Polyhaven backend (public
+## Install
+
+```bash
+npm install @jbcom/asset-fetch     # library use
+npx @jbcom/asset-fetch --help      # one-off CLI use
+```
+
+Requires Node.js >= 24. Ships ESM and CommonJS with types for both.
+
+**Shipped today:** the itch.io backend — owned-library fetch and
+curated-asset promotion.
+
+**Planned:** a NAS-catalog backend and a Polyhaven backend (public
 HDRI/texture/model API). See `ROADMAP.md`. This package is CLI +
-library only — no MCP server; `assets-mcp` (a separate Python
-project) stays the interactive NAS-cataloging tool.
+library only — no MCP server.
 
 ## CLI
 
 ```bash
 export ITCH_API_KEY=...   # or write ITCH_API_KEY=... to .env in cwd
 
-assets-search library
+asset-fetch library
 # paginates itch.io's my-owned-keys endpoint into .itch-cache/library.json
 
-assets-search search [query] [--bucket=audio|pixel-2d|3d-psx|tool|other]
+asset-fetch search [query] [--bucket=audio|pixel-2d|3d-psx|tool|other]
 # queries the cached owned library by text and/or content bucket
 
-assets-search download allowlist.json [--dry]
+asset-fetch download allowlist.json [--dry]
 # fetches + extracts allow-listed owned packs into raw-assets/
 ```
 
@@ -42,7 +49,7 @@ CLI command — the slot→source mapping is game-specific. Import
 `promoteAssets` and write a short per-repo script:
 
 ```ts
-import { listExtractedAudioFiles, promoteAssets, writeAssetManifest } from "@arcade-cabinet/assets-search";
+import { listExtractedAudioFiles, promoteAssets, writeAssetManifest } from "@jbcom/asset-fetch";
 
 const files = listExtractedAudioFiles("raw-assets/extracted");
 const { manifest } = promoteAssets({
@@ -98,7 +105,7 @@ writeAssetManifest("public/assets/audio", manifest);
   pile).
 - `writeAssetManifest(targetDir, manifest)` — writes `manifest.json`
   next to the promoted files, for the consuming game's own audio-loading
-  code (e.g. `@arcade-cabinet/audio-engine`'s Howler sprite resolver) to
+  code (e.g. `@jbcom/gesture-audio`'s Howler sprite resolver) to
   read rather than hardcoding filenames in game source.
 
 ## Security notes

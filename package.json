@@ -1,28 +1,33 @@
 {
-  "name": "@arcade-cabinet/assets-search",
+  "name": "@jbcom/asset-fetch",
   "version": "0.1.1",
   "description": "CLI-first, multi-backend asset search + fetch toolkit for the fleet: itch.io owned library (fetch + curated promotion), the local NAS asset catalog (read-only query against assets-mcp's SQLite DB), and Polyhaven's public HDRI/texture/model catalog. TypeScript, no MCP required — designed to run from game scripts and CI.",
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "publishConfig": {
-    "access": "restricted",
-    "registry": "https://redacted-private-registry.example/api/packages/arcade-cabinet/npm/"
+    "access": "public",
+    "provenance": true
   },
   "files": [
     "dist",
     "README.md"
   ],
   "bin": {
-    "assets-search": "./dist/cli.js"
+    "asset-fetch": "./dist/cli.js"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./package.json": "./package.json"
   },
@@ -33,7 +38,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --config vitest.config.ts",
     "prepack": "pnpm run build",
-    "prepublishOnly": "pnpm run typecheck && pnpm run test && pnpm run build"
+    "prepublishOnly": "pnpm run typecheck && pnpm run test && pnpm run build",
+    "verify": "pnpm run typecheck && pnpm run test && pnpm run build"
   },
   "engines": {
     "node": ">=24"
@@ -42,13 +48,18 @@
     "node-unrar-js": "^2.0.2"
   },
   "devDependencies": {
-    "@types/node": "^22.19.0",
+    "@types/node": "^24.10.1",
     "esbuild": "^0.28.1",
     "typescript": "^5.9.3",
     "vitest": "^4.1.5"
   },
   "repository": {
     "type": "git",
-    "url": "https://redacted-private-registry.example/arcade-cabinet/assets-search"
-  }
+    "url": "git+https://github.com/jbcom/asset-fetch.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jbcom/asset-fetch/issues"
+  },
+  "homepage": "https://github.com/jbcom/asset-fetch#readme",
+  "packageManager": "pnpm@11.23.0"
 }

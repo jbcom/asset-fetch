@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Lockfile is in sync
+        run: |
+          pnpm install --lockfile-only
+          git diff --exit-code pnpm-lock.yaml
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      # A published package whose types or exports are broken is worse than one
+      # that fails to build: consumers only find out at integration time.
+      - name: Package is consumable
+        run: |
+          pnpm dlx publint
+          pnpm dlx @arethetypeswrong/cli --pack .

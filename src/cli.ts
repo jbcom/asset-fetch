@@ -20,18 +20,46 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-const apiKey = readItchApiKey(cwd);
-if (!apiKey) {
-  fail(
-    "ITCH_API_KEY missing — set the env var or add `ITCH_API_KEY=<key>` to .env in the current directory."
-  );
+function usage(): string {
+  return [
+    "usage: asset-fetch <command>",
+    "",
+    "  library                     paginate my-owned-keys into .itch-cache/library.json",
+    "  search [query] [--bucket=audio|pixel-2d|3d-psx|tool|other]",
+    "                              query the cached owned library by text and/or bucket",
+    "  download <allow.json> [--dry]",
+    "                              fetch + extract allow-listed owned packs into raw-assets/",
+    "",
+    "Promotion (raw-assets/ -> public/assets/) is intentionally NOT a CLI command —",
+    "import { promoteAssets } from '@jbcom/asset-fetch' and write a short",
+    "per-repo script that defines the actual slot->source mapping for your game.",
+    "",
+    "Other backends (NAS catalog, Polyhaven) are planned — see ROADMAP.md.",
+  ].join("\n");
+}
+
+if (command === undefined || command === "--help" || command === "-h" || command === "help") {
+  console.log(usage());
+  process.exit(0);
+}
+
+// Only the commands that talk to itch.io need a credential. Requiring it up
+// front made `--help` fail for an unrelated reason.
+function requireApiKey(): string {
+  const key = readItchApiKey(cwd);
+  if (!key) {
+    fail(
+      "ITCH_API_KEY missing — set the env var or add `ITCH_API_KEY=<key>` to .env in the current directory."
+    );
+  }
+  return key;
 }
 
 switch (command) {
   case "library": {
     const cacheDir = join(cwd, ".itch-cache");
     const cachePath = join(cacheDir, "library.json");
-    const packs = await fetchOwnedLibrary({ apiKey });
+    const packs = await fetchOwnedLibrary({ apiKey: requireApiKey() });
     mkdirSync(cacheDir, { recursive: true });
     writeFileSync(cachePath, `${JSON.stringify(packs, null, 2)}\n`);
     const unique = dedupeByGame(packs);
@@ -42,7 +70,7 @@ switch (command) {
   case "search": {
     const cachePath = join(cwd, ".itch-cache", "library.json");
     if (!existsSync(cachePath)) {
-      fail(`No library cache at ${cachePath}. Run \`assets-search library\` first.`);
+      fail(`No library cache at ${cachePath}. Run \`asset-fetch library\` first.`);
     }
     const library: OwnedPack[] = JSON.parse(readFileSync(cachePath, "utf8"));
     const bucketArg = rest.find((a) => a.startsWith("--bucket="))?.slice("--bucket=".length) as
@@ -59,10 +87,10 @@ switch (command) {
 
   case "download": {
     const allowlistPath = rest.find((a) => !a.startsWith("--"));
-    if (!allowlistPath) fail("usage: assets-search download <allowlist.json> [--dry]");
+    if (!allowlistPath) fail("usage: asset-fetch download <allowlist.json> [--dry]");
     const cachePath = join(cwd, ".itch-cache", "library.json");
     if (!existsSync(cachePath)) {
-      fail(`No library cache at ${cachePath}. Run \`assets-search library\` first.`);
+      fail(`No library cache at ${cachePath}. Run \`asset-fetch library\` first.`);
     }
     const library: Array<{ gameId: number; keyId: number; title: string }> = JSON.parse(
       readFileSync(cachePath, "utf8")
@@ -78,7 +106,7 @@ switch (command) {
     const looseDir = join(cwd, "raw-assets", "extracted-loose");
     const extractedDir = join(cwd, "raw-assets", "extracted");
 
-    const result = await fetchItchAssets({ apiKey, packs, archivesDir, looseDir, dry });
+    const result = await fetchItchAssets({ apiKey: requireApiKey(), packs, archivesDir, looseDir, dry });
     console.log(
       `fetch: downloaded=${result.downloaded} skipped=${result.skipped} failed=${result.failed}`
     );
@@ -92,21 +120,5 @@ switch (command) {
   }
 
   default:
-    fail(
-      [
-        "usage: assets-search <command>",
-        "",
-        "  library                     paginate my-owned-keys into .itch-cache/library.json",
-        "  search [query] [--bucket=audio|pixel-2d|3d-psx|tool|other]",
-        "                              query the cached owned library by text and/or bucket",
-        "  download <allow.json> [--dry]",
-        "                              fetch + extract allow-listed owned packs into raw-assets/",
-        "",
-        "Promotion (raw-assets/ -> public/assets/) is intentionally NOT a CLI command —",
-        "import { promoteAssets } from '@arcade-cabinet/assets-search' and write a short",
-        "per-repo script that defines the actual slot->source mapping for your game.",
-        "",
-        "Other backends (NAS catalog, Polyhaven) are planned — see ROADMAP.md.",
-      ].join("\n")
-    );
+    fail(`unknown command: ${command}\n\n${usage()}`);
 }

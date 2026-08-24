@@ -1,4 +1,4 @@
-# assets-search roadmap
+# asset-fetch roadmap
 
 Current state (v0.1.0, shipped): the itch.io backend only — owned-library
 fetch + curated promotion. This is what unblocked otterly-chaotic's
@@ -55,10 +55,10 @@ HDRIs/textures/models, not relevant to otterly-chaotic.
 
 ## Planned: unified search CLI
 
-`assets-search find <query> [--source itch|nas|polyhaven|all] [--type audio|3d|hdri|texture]`
+`asset-fetch find <query> [--source itch|nas|polyhaven|all] [--type audio|3d|hdri|texture]`
 — one command fanning out to whichever backends are relevant/reachable,
 merging results into one ranked list. Per-backend commands
-(`assets-search itch library`, etc.) stay available underneath for
+(`asset-fetch itch library`, etc.) stay available underneath for
 scripted/CI use where a specific source is already known.
 
 ## Planned: TOON output mode
