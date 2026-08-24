@@ -50,7 +50,7 @@ client-side (Polyhaven's API has no server-side text search — same
 constraint noted for itch.io's public catalog). `fetchPolyhavenAsset`
 downloads via the direct `dl.polyhaven.org` URLs (md5-verified, same
 idempotency pattern as `fetchItchAssets`). No audio assets on
-Polyhaven — this backend is for the fleet's 3D games needing
+Polyhaven — this backend is for 3D games needing
 HDRIs/textures/models, not relevant to otterly-chaotic.
 
 ## Planned: unified search CLI
@@ -72,7 +72,7 @@ Ties into the broader "CLI over MCP" preference recorded in
 `~/.claude/CLAUDE.md` — a fast, scriptable CLI an agent shells out to,
 rather than an MCP server round-trip, with TOON shrinking the
 per-call token cost further. This package's own CLI is the pilot for
-that pattern; if it proves out, other fleet CLIs (itch parts of this
+that pattern; if it proves out, other CLIs (itch parts of this
 package included) should adopt the same `--format toon` convention.
 
 ## Explicitly out of scope (for this package, always)

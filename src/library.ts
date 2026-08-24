@@ -12,7 +12,7 @@ const MAX_RETRIES = 4;
 /**
  * itch.io's API rate-limits paginated my-owned-keys requests (a full
  * library walk hit a real 429 during development of this package — the
- * fleet's prior per-repo scripts never handled this, they just crashed).
+ * prior per-repo scripts never handled this, they just crashed).
  * Retries on 429 with the response's Retry-After header when present,
  * otherwise exponential backoff (1s, 2s, 4s, 8s). Non-429 responses pass
  * through untouched — the caller's existing `!res.ok` handling covers them.

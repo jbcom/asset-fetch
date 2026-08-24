@@ -89,7 +89,7 @@ writeAssetManifest("public/assets/audio", manifest);
   redirect hop; filenames are `basename()`-stripped so a malicious
   `upload.filename` can't zip-slip outside the target directory.
 - `extractArchives(archivesDir, extractedDir)` — `.zip` via the system
-  `unzip`, `.rar` via `node-unrar-js` (the only prior fleet variant that
+  `unzip`, `.rar` via `node-unrar-js` (the only prior variant that
   handled non-zip archives, generalized here), `.7z` via the system `7z`
   if present. Skips archives already extracted at least as recently as
   their source archive's mtime.

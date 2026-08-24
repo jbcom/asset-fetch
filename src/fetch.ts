@@ -218,7 +218,7 @@ export async function fetchItchAssets(options: FetchAssetsOptions): Promise<Fetc
 /**
  * Extract every archive in archivesDir into extractedDir/<slug>. .zip via
  * the system `unzip`; .rar via node-unrar-js (bone-buster's pattern — the
- * only fleet variant handling non-zip archives); .7z via the system `7z`
+ * only prior variant handling non-zip archives); .7z via the system `7z`
  * if present. Skips archives already extracted at least as recently as
  * their source archive's mtime.
  */
