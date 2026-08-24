@@ -66,6 +66,11 @@ writeAssetManifest("public/assets/audio", manifest);
 
 ## Library API
 
+- `readItchApiKey(root)` — resolve `ITCH_API_KEY`: `process.env` first,
+  then a `ITCH_API_KEY=<key>` line in a `.env` file under `root`. Returns
+  `undefined` (never throws) when neither is set, so callers can print
+  their own contextual error — this is what the CLI uses to resolve the
+  credential before calling `fetchOwnedLibrary`/`fetchItchAssets`.
 - `fetchOwnedLibrary({ apiKey, maxPages? })` — paginate `my-owned-keys`.
 - `dedupeByGame(packs)` — one row per unique game (the same game can
   appear under multiple download keys — free + paid bundles, replacement
@@ -93,6 +98,11 @@ writeAssetManifest("public/assets/audio", manifest);
   handled non-zip archives, generalized here), `.7z` via the system `7z`
   if present. Skips archives already extracted at least as recently as
   their source archive's mtime.
+- `slugify(s)` — lowercase + hyphenate a title or filename into a
+  filesystem-safe prefix (e.g. `"UI Sound Effects Pack – 40 Sounds"` ->
+  `"ui-sound-effects-pack-40-sounds"`). Not reversible or guaranteed
+  unique; `fetchItchAssets` uses it only for readable directory/file
+  names, never as an identity key.
 
 ## Promote API
 

@@ -12,25 +12,44 @@ export interface PromoteSlot {
   sources: string[];
 }
 
+/** Options for {@link promoteAssets}. */
 export interface PromoteOptions {
+  /** The slot -> source-file(s) mapping to promote. */
   slots: PromoteSlot[];
+  /** Destination directory the slot files are copied into (e.g. a game's
+   * `public/assets/audio`). Created if missing when `apply` is true. */
   targetDir: string;
   /** Copies only when true; otherwise reports what WOULD be copied. */
   apply?: boolean;
   /** Run ffmpeg's loudnorm filter (-16 LUFS target) on each promoted file.
-   * Requires ffmpeg on PATH; throws if apply is true and ffmpeg is missing. */
+   * Requires ffmpeg on PATH. If ffmpeg is missing or exits non-zero, this
+   * does NOT throw — it silently leaves the plain (non-normalized) copy in
+   * place, so a missing ffmpeg degrades gracefully rather than failing the
+   * whole promote run. */
   normalize?: boolean;
 }
 
+/** Result of one {@link promoteAssets} call. */
 export interface PromoteResult {
   /** slot name -> destination paths written (or that would be written). */
   written: Record<string, string[]>;
+  /** Same information as `written`, reshaped for {@link writeAssetManifest}
+   * — one entry per slot, filenames only (no directory component). */
   manifest: AssetManifestEntry[];
 }
 
+/** One slot's entry in the `manifest.json` written by
+ * {@link writeAssetManifest} — what a game's audio-loading code reads back
+ * to resolve a slot name to its promoted file(s). */
 export interface AssetManifestEntry {
+  /** Slot name, matching {@link PromoteSlot.name}. */
   slot: string;
+  /** Promoted filenames for this slot (basenames only, e.g. `"bark-0.wav"`),
+   * in the same order as the slot's `sources`. */
   files: string[];
+  /** Number of source files this slot was built from — lets consuming code
+   * distinguish a single-file cue from a round-robin variation set without
+   * re-deriving it from `files.length`. */
   sourceCount: number;
 }
 
@@ -73,7 +92,16 @@ export function promoteAssets(options: PromoteOptions): PromoteResult {
       }
     });
     written[slot.name] = destPaths;
-    manifest.push({ slot: slot.name, files: destPaths.map((p) => p.split("/").pop() ?? p), sourceCount: slot.sources.length });
+    manifest.push({
+      slot: slot.name,
+      // dest is always built via join(targetDir, destName), so split("/").pop()
+      // can never actually return undefined here — the ?? p fallback exists only
+      // to satisfy TypeScript's Array#pop() signature (T | undefined), not because
+      // this path is reachable at runtime.
+      /* v8 ignore next */
+      files: destPaths.map((p) => p.split("/").pop() ?? p),
+      sourceCount: slot.sources.length,
+    });
   }
 
   return { written, manifest };

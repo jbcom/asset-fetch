@@ -3,16 +3,35 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node
 import { basename, join } from "node:path";
 import { spawnSync } from "node:child_process";
 
+/** One file itch.io offers for a given game/download-key, as returned by
+ * the `/api/1/key/game/<id>/uploads` endpoint. */
 export interface ItchUpload {
+  /** itch.io's id for this upload — used to request its signed download URL. */
   id: number;
+  /** Filename as itch.io reports it. Never used as-is for a destination
+   * path — {@link fetchItchAssets} runs it through `basename()` first, so a
+   * malicious `filename` (e.g. containing `../`) can't zip-slip outside
+   * the target directory. */
   filename: string;
+  /** File size in bytes, used both to size-check an existing local file
+   * (idempotent skip) and to verify a completed download. */
   size: number;
+  /** MD5 hash of the file contents, when itch.io provides one. Used
+   * alongside `size` to decide whether an already-downloaded file can be
+   * skipped; a missing hash falls back to a size-only check. */
   md5_hash?: string;
 }
 
+/** One owned pack selected for download — the minimal fields
+ * {@link fetchItchAssets} needs, typically a filtered slice of the
+ * {@link OwnedPack} array from {@link fetchOwnedLibrary}. */
 export interface PackToFetch {
+  /** The download key id granting access to this pack (from {@link OwnedPack.keyId}). */
   keyId: number;
+  /** The underlying game's id (from {@link OwnedPack.gameId}). */
   gameId: number;
+  /** Pack/game title — also used to derive the per-pack filename prefix
+   * via {@link slugify}. */
   title: string;
 }
 
@@ -34,16 +53,36 @@ export interface FetchAssetsOptions {
   retrySleepImpl?: (ms: number) => Promise<void>;
 }
 
+/** Tally returned by {@link fetchItchAssets} summarizing one batch run. */
 export interface FetchAssetsResult {
+  /** Number of uploads newly written to disk (or, in `dry` mode, that
+   * would have been). */
   downloaded: number;
+  /** Number of uploads left untouched because an existing file already
+   * matched on size (and md5, when itch.io provided one). */
   skipped: number;
+  /** Number of packs/uploads that could not be completed — no usable
+   * uploads, an exhausted apiGet retry, a non-https download URL, or a
+   * post-download size mismatch. */
   failed: number;
+  /** Absolute paths of every archive (`.zip`/`.rar`/`.7z`) that is now
+   * present in `archivesDir` — downloaded this run or already skipped as
+   * up to date — ready to hand to {@link extractArchives}. */
   archives: string[];
 }
 
 const ARCHIVE_RE = /\.(zip|rar|7z)$/i;
 const LOOSE_RE = /\.(wav|mp3|ogg|flac)$/i;
 
+/**
+ * Lowercase a string and collapse every run of non-alphanumeric characters
+ * into a single hyphen, trimming leading/trailing hyphens — used to turn a
+ * pack title or archive filename (e.g. `"UI Sound Effects Pack – 40
+ * Sounds"`) into a filesystem-safe, human-readable directory/prefix name
+ * (`"ui-sound-effects-pack-40-sounds"`). Not reversible and not guaranteed
+ * unique — {@link fetchItchAssets} relies on it only for readability, not
+ * as an identity key.
+ */
 export function slugify(s: string): string {
   return s
     .toLowerCase()

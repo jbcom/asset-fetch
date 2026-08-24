@@ -1,7 +1,7 @@
 {
   "name": "@jbcom/asset-fetch",
   "version": "0.1.1",
-  "description": "CLI-first, multi-backend asset search + fetch toolkit: itch.io owned library (fetch + curated promotion), a local SQLite asset catalog, and Polyhaven public HDRI/texture/model catalog. TypeScript, no MCP required — designed to run from game scripts and CI.",
+  "description": "CLI-first asset fetch toolkit: fetch your owned itch.io library and promote a curated subset into a game project. A local SQLite asset catalog and a Polyhaven backend are planned (see ROADMAP.md). TypeScript, no MCP required — designed to run from game scripts and CI.",
   "type": "module",
   "license": "MIT",
   "publishConfig": {
@@ -69,10 +69,7 @@
     "assets",
     "asset-pipeline",
     "itch.io",
-    "polyhaven",
     "cli",
-    "game-dev",
-    "hdri",
-    "sqlite"
+    "game-dev"
   ]
 }

@@ -1,9 +1,25 @@
+/**
+ * One row from itch.io's `my-owned-keys` endpoint: a single download key
+ * granting access to a game. The same game can appear more than once (a
+ * free key and a later paid-bundle key, a replacement key, etc.) — see
+ * {@link dedupeByGame} to collapse to one row per game.
+ */
 export interface OwnedPack {
+  /** itch.io's id for this specific download key (not the game itself). */
   keyId: number;
+  /** itch.io's id for the underlying game — stable across the game's
+   * multiple download keys, so it's the right field to dedupe/group on. */
   gameId: number;
+  /** Game title, as itch.io returns it. */
   title: string;
+  /** itch.io's classification field for the game (e.g. "game", "tool",
+   * "asset") — distinct from {@link classifyPack}'s content-bucket guess,
+   * which is inferred from title/description text. */
   classification: string;
+  /** Short description text, used alongside `title` for search/classification. */
   shortText: string;
+  /** The game's itch.io page URL, sanitized via {@link sanitizeItchUrl}
+   * (empty string if the source value was malformed or non-http(s)). */
   url: string;
 }
 
@@ -39,7 +55,10 @@ async function fetchWithRetry(
   return lastResponse as Response;
 }
 
+/** Options for {@link fetchOwnedLibrary}. */
 export interface FetchLibraryOptions {
+  /** itch.io API key — see {@link readItchApiKey} for the standard way to
+   * resolve one from the environment or a `.env` file. */
   apiKey: string;
   /** Injected for tests; defaults to the global fetch. */
   fetchImpl?: typeof fetch;
@@ -116,6 +135,10 @@ export function dedupeByGame(packs: OwnedPack[]): OwnedPack[] {
   return [...seen.values()];
 }
 
+/** Coarse content-type bucket assigned by {@link classifyPack} — the three
+ * recurring asset shapes this package cares about (`audio`, `pixel-2d`,
+ * `3d-psx`), itch.io's own `tool` classification, or `other` for anything
+ * that doesn't match. */
 export type LibraryBucket = "audio" | "pixel-2d" | "3d-psx" | "tool" | "other";
 
 /** Coarse content-type classification from title+description text. Callers
@@ -133,6 +156,8 @@ export function classifyPack(pack: OwnedPack): LibraryBucket {
   return "other";
 }
 
+/** Filter options for {@link searchLibrary}. Both fields are optional and
+ * combine with AND semantics — a pack must satisfy both when both are given. */
 export interface SearchLibraryOptions {
   /** Case-insensitive substring/word match against title + shortText.
    * Omit to match every pack (useful combined with `bucket` alone). */
