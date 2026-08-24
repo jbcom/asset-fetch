@@ -148,12 +148,22 @@ describe("promoteAssets", () => {
 });
 
 describe("writeAssetManifest", () => {
-  test("writes a manifest.json listing every slot", () => {
+  test("writes a manifest.json with a real generatedAt timestamp and every slot", () => {
     const dir = mkdtempSync(join(tmpdir(), "itch-manifest-test-"));
     try {
+      const before = Date.now();
       writeAssetManifest(dir, [{ slot: "bark", files: ["bark.wav"], sourceCount: 1 }]);
+      const after = Date.now();
+
       const manifestPath = join(dir, "manifest.json");
       expect(existsSync(manifestPath)).toBe(true);
+
+      const written = JSON.parse(readFileSync(manifestPath, "utf8"));
+      expect(written.slots).toEqual([{ slot: "bark", files: ["bark.wav"], sourceCount: 1 }]);
+      expect(typeof written.generatedAt).toBe("string");
+      const parsedTime = Date.parse(written.generatedAt);
+      expect(parsedTime).toBeGreaterThanOrEqual(before);
+      expect(parsedTime).toBeLessThanOrEqual(after);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

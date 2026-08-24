@@ -110,10 +110,14 @@ export function promoteAssets(options: PromoteOptions): PromoteResult {
 /** Write a `manifest.json` next to the promoted files — the consuming
  * game's own audio-loading code (e.g. @jbcom/gesture-audio's sprite
  * resolver) reads this to build its sprite map, rather than hardcoding
- * filenames in game source. */
+ * filenames in game source. The written file is `{ generatedAt, slots }`,
+ * where `generatedAt` is the current time as an ISO 8601 string (useful
+ * for a consuming game to tell a stale manifest from a freshly-promoted
+ * one) and `slots` is `manifest` as given. */
 export function writeAssetManifest(targetDir: string, manifest: AssetManifestEntry[]): void {
   const path = join(targetDir, "manifest.json");
-  writeFileSync(path, `${JSON.stringify({ generatedAt: null, slots: manifest }, null, 2)}\n`);
+  const generatedAt = new Date().toISOString();
+  writeFileSync(path, `${JSON.stringify({ generatedAt, slots: manifest }, null, 2)}\n`);
 }
 
 /** Recursively list every audio file under a directory — the raw-extracted
