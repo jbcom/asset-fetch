@@ -1,5 +1,5 @@
 /**
- * One row from itch.io's `my-owned-keys` endpoint: a single download key
+ * One row from itch.io's `profile/owned-keys` endpoint: a single download key
  * granting access to a game. The same game can appear more than once (a
  * free key and a later paid-bundle key, a replacement key, etc.) — see
  * {@link dedupeByGame} to collapse to one row per game.
@@ -25,8 +25,17 @@ export interface OwnedPack {
 
 const MAX_RETRIES = 4;
 
+function retryAfterMilliseconds(value: string | null, now = Date.now()): number | undefined {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return seconds >= 0 ? seconds * 1000 : undefined;
+  const date = Date.parse(value);
+  if (Number.isNaN(date)) return undefined;
+  return Math.max(0, date - now);
+}
+
 /**
- * itch.io's API rate-limits paginated my-owned-keys requests (a full
+ * itch.io's API rate-limits paginated owned-keys requests (a full
  * library walk hit a real 429 during development of this package — the
  * prior per-repo scripts never handled this, they just crashed).
  * Retries on 429 with the response's Retry-After header when present,
@@ -44,9 +53,8 @@ async function fetchWithRetry(
     if (res.status !== 429) return res;
     lastResponse = res;
     if (attempt === MAX_RETRIES) break;
-    const retryAfterHeader = res.headers.get("retry-after");
-    const retryAfterMs = retryAfterHeader ? Number(retryAfterHeader) * 1000 : Number.NaN;
-    const backoffMs = Number.isFinite(retryAfterMs) ? retryAfterMs : 2 ** attempt * 1000;
+    const retryAfterMs = retryAfterMilliseconds(res.headers.get("retry-after"));
+    const backoffMs = retryAfterMs ?? 2 ** attempt * 1000;
     console.warn(
       `itch API page ${page}: rate limited (429), retrying in ${Math.round(backoffMs / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})`
     );
@@ -62,7 +70,7 @@ export interface FetchLibraryOptions {
   apiKey: string;
   /** Injected for tests; defaults to the global fetch. */
   fetchImpl?: typeof fetch;
-  /** Safety bound on itch's paginated my-owned-keys endpoint. Default 40. */
+  /** Safety bound on itch's paginated profile/owned-keys endpoint. Default 40. */
   maxPages?: number;
   /** Injected for tests to avoid real waits during 429 backoff. */
   sleepImpl?: (ms: number) => Promise<void>;
@@ -84,41 +92,67 @@ export function sanitizeItchUrl(url: unknown): string {
 }
 
 /**
- * Paginate itch.io's `my-owned-keys` endpoint into a flat list of owned
+ * Paginate itch.io's modern `profile/owned-keys` endpoint into a flat list of owned
  * packs. Does not deduplicate — the same game can appear more than once
  * across multiple download keys (free + paid bundles, replacement keys);
  * callers that want one row per game should dedupe by `gameId`.
  */
 export async function fetchOwnedLibrary(options: FetchLibraryOptions): Promise<OwnedPack[]> {
   const { apiKey, maxPages = 40, sleepImpl } = options;
+  if (!apiKey.trim()) throw new Error("itch API key must not be empty");
+  if (!Number.isSafeInteger(maxPages) || maxPages < 1) {
+    throw new Error("maxPages must be a positive integer");
+  }
   const doFetch = options.fetchImpl ?? fetch;
   const all: OwnedPack[] = [];
-
   for (let page = 1; page <= maxPages; page++) {
     const res = await fetchWithRetry(
-      () => doFetch(`https://itch.io/api/1/${apiKey}/my-owned-keys?page=${page}`),
+      () =>
+        doFetch(`https://api.itch.io/profile/owned-keys?page=${page}`, {
+          headers: { Accept: "application/json", Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(30_000),
+        }),
       page,
       sleepImpl
     );
     if (!res.ok) {
       throw new Error(`itch API page ${page} failed: HTTP ${res.status} ${res.statusText}`);
     }
-    let data: { owned_keys?: unknown };
+    let data: unknown;
     try {
-      data = (await res.json()) as { owned_keys?: unknown };
+      data = await res.json();
     } catch (e) {
       throw new Error(`itch API page ${page}: non-JSON response (${(e as Error).message})`);
     }
-    const keys = Array.isArray(data.owned_keys) ? data.owned_keys : [];
+    const keys =
+      typeof data === "object" &&
+      data !== null &&
+      "owned_keys" in data &&
+      Array.isArray(data.owned_keys)
+        ? data.owned_keys
+        : [];
     if (keys.length === 0) break;
-    for (const k of keys as Array<Record<string, unknown>>) {
-      const game = (k.game ?? {}) as Record<string, unknown>;
+    for (const [index, value] of keys.entries()) {
+      if (typeof value !== "object" || value === null) {
+        throw new Error(`itch API page ${page}: owned_keys[${index}] is not an object`);
+      }
+      const k = value as Record<string, unknown>;
+      if (typeof k.id !== "number" || !Number.isSafeInteger(k.id)) {
+        throw new Error(`itch API page ${page}: owned_keys[${index}] has an invalid key id`);
+      }
+      if (typeof k.game !== "object" || k.game === null) {
+        throw new Error(`itch API page ${page}: owned_keys[${index}] has no game object`);
+      }
+      const game = k.game as Record<string, unknown>;
+      if (typeof game.id !== "number" || !Number.isSafeInteger(game.id)) {
+        throw new Error(`itch API page ${page}: owned_keys[${index}] has an invalid game id`);
+      }
       all.push({
-        keyId: k.id as number,
-        gameId: game.id as number,
-        title: (game.title as string) ?? "?",
-        classification: (game.classification as string) ?? "?",
-        shortText: (game.short_text as string) ?? "",
+        keyId: k.id,
+        gameId: game.id,
+        title: typeof game.title === "string" ? game.title : "?",
+        classification: typeof game.classification === "string" ? game.classification : "?",
+        shortText: typeof game.short_text === "string" ? game.short_text : "",
         url: sanitizeItchUrl(game.url),
       });
     }
@@ -173,8 +207,7 @@ export interface SearchLibraryOptions {
  * so an allow-list author (human or agent) can find candidate packs by
  * name/keyword instead of scrolling the raw JSON. Local/offline: this
  * searches what you already own, not itch.io's public catalog (itch.io
- * doesn't expose a documented general-catalog search API — the `/api/1/
- * <key>/...` surface is scoped to owned keys).
+ * doesn't expose a documented general-catalog search API).
  */
 export function searchLibrary(packs: OwnedPack[], options: SearchLibraryOptions = {}): OwnedPack[] {
   const { query, bucket } = options;

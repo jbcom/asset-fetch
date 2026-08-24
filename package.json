@@ -1,7 +1,7 @@
 {
   "name": "@jbdevprimary/asset-fetch",
   "version": "0.1.1",
-  "description": "CLI-first asset fetch toolkit: fetch your owned itch.io library and promote a curated subset into a game project. A local SQLite asset catalog and a Polyhaven backend are planned (see ROADMAP.md). TypeScript, no MCP required — designed to run from game scripts and CI.",
+  "description": "Typed CLI and library for finding, verifying, extracting, and curating game assets from itch.io, Poly Haven, and local SQLite catalogs.",
   "type": "module",
   "license": "MIT",
   "publishConfig": {
@@ -10,7 +10,10 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md",
+    "docs",
+    "examples"
   ],
   "bin": {
     "asset-fetch": "./dist/cli.js"
@@ -33,14 +36,19 @@
   },
   "sideEffects": false,
   "scripts": {
-    "clean": "rm -rf dist",
+    "clean": "node scripts/clean.mjs",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "biome lint .",
+    "check": "biome check .",
     "build": "node scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --config vitest.config.ts",
     "coverage": "vitest run --config vitest.config.ts --coverage",
     "prepack": "pnpm run build",
-    "prepublishOnly": "pnpm run typecheck && pnpm run test && pnpm run build",
-    "verify": "pnpm run typecheck && pnpm run test && pnpm run build"
+    "prepublishOnly": "pnpm run verify",
+    "pack:check": "pnpm pack --dry-run",
+    "verify": "pnpm run check && pnpm run typecheck && pnpm run coverage && pnpm run build && pnpm run pack:check"
   },
   "engines": {
     "node": ">=24"
@@ -49,6 +57,7 @@
     "node-unrar-js": "^2.0.2"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.10",
     "@types/node": "^24.10.1",
     "@vitest/coverage-v8": "^4.1.11",
     "esbuild": "^0.28.1",
@@ -69,6 +78,9 @@
     "assets",
     "asset-pipeline",
     "itch.io",
+    "poly-haven",
+    "sqlite",
+    "3d-assets",
     "cli",
     "game-dev"
   ]

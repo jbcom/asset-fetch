@@ -43,6 +43,23 @@ describe("readItchApiKey", () => {
     expect(readItchApiKey(dir)).toBe("crlf-key");
   });
 
+  test("accepts export syntax, whitespace, quotes, and inline comments", () => {
+    writeFileSync(join(dir, ".env"), "  export ITCH_API_KEY = 'quoted-key'  \n");
+    expect(readItchApiKey(dir)).toBe("quoted-key");
+
+    writeFileSync(join(dir, ".env"), "ITCH_API_KEY=plain-key # local credential\n");
+    expect(readItchApiKey(dir)).toBe("plain-key");
+
+    writeFileSync(join(dir, ".env"), 'ITCH_API_KEY="double-quoted-key"\n');
+    expect(readItchApiKey(dir)).toBe("double-quoted-key");
+  });
+
+  test("ignores blank environment and file values", () => {
+    process.env.ITCH_API_KEY = "   ";
+    writeFileSync(join(dir, ".env"), "ITCH_API_KEY=   \n");
+    expect(readItchApiKey(dir)).toBeUndefined();
+  });
+
   test("returns undefined when no .env file exists", () => {
     expect(readItchApiKey(dir)).toBeUndefined();
   });

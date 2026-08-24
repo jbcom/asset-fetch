@@ -1,4 +1,12 @@
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -145,6 +153,89 @@ describe("promoteAssets", () => {
     // never overwritten by a normalized file that was never produced.
     expect(readFileSync(dest, "utf8")).toBe("raw audio");
   });
+
+  test("rejects path-like, duplicate, empty, and colliding slots before writing", () => {
+    const src = join(dir, "source.wav");
+    writeFileSync(src, "audio");
+    const targetDir = join(dir, "public");
+
+    expect(() =>
+      promoteAssets({ slots: [{ name: "../escape", sources: [src] }], targetDir, apply: true })
+    ).toThrow(/invalid slot name/);
+    expect(() =>
+      promoteAssets({
+        slots: [
+          { name: "same", sources: [src] },
+          { name: "same", sources: [src] },
+        ],
+        targetDir,
+        apply: true,
+      })
+    ).toThrow(/duplicate slot name/);
+    expect(() =>
+      promoteAssets({
+        slots: [
+          { name: "Cue", sources: [src] },
+          { name: "cue", sources: [src] },
+        ],
+        targetDir,
+        apply: true,
+      })
+    ).toThrow(/duplicate slot name/);
+    expect(() =>
+      promoteAssets({ slots: [{ name: "empty", sources: [] }], targetDir, apply: true })
+    ).toThrow(/no source files/);
+    expect(() =>
+      promoteAssets({
+        slots: [
+          { name: "bark", sources: [src, src] },
+          { name: "bark-0", sources: [src] },
+        ],
+        targetDir,
+        apply: true,
+      })
+    ).toThrow(/both produce bark-0\.wav/);
+    expect(existsSync(targetDir)).toBe(false);
+  });
+
+  test("rejects unsupported source extensions", () => {
+    const src = join(dir, "not-audio.txt");
+    writeFileSync(src, "text");
+    expect(() =>
+      promoteAssets({ slots: [{ name: "cue", sources: [src] }], targetDir: join(dir, "public") })
+    ).toThrow(/unsupported audio extension/);
+  });
+
+  test("removes stale numbered variants after a slot shrinks to one source", () => {
+    const first = join(dir, "first.wav");
+    const second = join(dir, "second.wav");
+    writeFileSync(first, "first");
+    writeFileSync(second, "second");
+    const targetDir = join(dir, "public");
+
+    promoteAssets({ slots: [{ name: "bark", sources: [first, second] }], targetDir, apply: true });
+    promoteAssets({ slots: [{ name: "bark", sources: [first] }], targetDir, apply: true });
+
+    expect(readdirSync(targetDir).sort()).toEqual(["bark.wav"]);
+  });
+
+  test("stages all sources before replacing existing promoted files", () => {
+    const good = join(dir, "good.wav");
+    writeFileSync(good, "old");
+    const targetDir = join(dir, "public");
+    promoteAssets({ slots: [{ name: "cue", sources: [good] }], targetDir, apply: true });
+
+    expect(() =>
+      promoteAssets({
+        slots: [{ name: "cue", sources: [join(dir, "missing.wav")] }],
+        targetDir,
+        apply: true,
+      })
+    ).toThrow();
+
+    expect(readFileSync(join(targetDir, "cue.wav"), "utf8")).toBe("old");
+    expect(readdirSync(targetDir)).toEqual(["cue.wav"]);
+  });
 });
 
 describe("writeAssetManifest", () => {
@@ -166,6 +257,17 @@ describe("writeAssetManifest", () => {
       expect(parsedTime).toBeLessThanOrEqual(after);
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("creates the target directory and leaves no temporary artifacts", () => {
+    const root = mkdtempSync(join(tmpdir(), "itch-manifest-create-test-"));
+    const target = join(root, "nested", "audio");
+    try {
+      writeAssetManifest(target, []);
+      expect(readdirSync(target)).toEqual(["manifest.json"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
     }
   });
 });

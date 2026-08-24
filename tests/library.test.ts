@@ -3,9 +3,9 @@ import {
   classifyPack,
   dedupeByGame,
   fetchOwnedLibrary,
+  type OwnedPack,
   sanitizeItchUrl,
   searchLibrary,
-  type OwnedPack,
 } from "../src/library.js";
 
 describe("sanitizeItchUrl", () => {
@@ -47,9 +47,7 @@ describe("classifyPack", () => {
   });
 
   test("falls back to tool classification field", () => {
-    expect(classifyPack({ ...base, title: "Random Utility", classification: "tool" })).toBe(
-      "tool"
-    );
+    expect(classifyPack({ ...base, title: "Random Utility", classification: "tool" })).toBe("tool");
   });
 
   test("falls back to other", () => {
@@ -107,7 +105,11 @@ describe("fetchOwnedLibrary", () => {
 
   test("throws with the HTTP status on a failed page", async () => {
     const fetchImpl = (async () =>
-      fakeResponse({ ok: false, status: 500, statusText: "Internal Server Error" })) as unknown as typeof fetch;
+      fakeResponse({
+        ok: false,
+        status: 500,
+        statusText: "Internal Server Error",
+      })) as unknown as typeof fetch;
     await expect(fetchOwnedLibrary({ apiKey: "key", fetchImpl })).rejects.toThrow(/500/);
   });
 
@@ -131,13 +133,13 @@ describe("fetchOwnedLibrary", () => {
   });
 
   test("treats a non-array owned_keys field as an empty page and stops", async () => {
-    const fetchImpl = (async () => fakeResponse({ json: { owned_keys: "not-an-array" } })) as unknown as
-      typeof fetch;
+    const fetchImpl = (async () =>
+      fakeResponse({ json: { owned_keys: "not-an-array" } })) as unknown as typeof fetch;
     const packs = await fetchOwnedLibrary({ apiKey: "key", fetchImpl });
     expect(packs).toEqual([]);
   });
 
-  test("defaults game to {} when an owned key omits it, producing undefined gameId/title fallback", async () => {
+  test("rejects an owned key that omits its game instead of violating the OwnedPack type", async () => {
     let calls = 0;
     const fetchImpl = (async () => {
       calls++;
@@ -145,10 +147,7 @@ describe("fetchOwnedLibrary", () => {
       return fakeResponse({ json: body });
     }) as unknown as typeof fetch;
 
-    const packs = await fetchOwnedLibrary({ apiKey: "key", fetchImpl });
-    expect(packs).toHaveLength(1);
-    expect(packs[0]?.title).toBe("?");
-    expect(packs[0]?.gameId).toBeUndefined();
+    await expect(fetchOwnedLibrary({ apiKey: "key", fetchImpl })).rejects.toThrow(/no game object/);
   });
 
   test("retries on 429 and succeeds once the server recovers", async () => {
@@ -173,9 +172,48 @@ describe("fetchOwnedLibrary", () => {
     expect(sleeps).toEqual([0]);
   });
 
+  test("supports an HTTP-date Retry-After value", async () => {
+    let calls = 0;
+    const retryAt = new Date(Date.now() + 5_000).toUTCString();
+    const sleeps: number[] = [];
+    const fetchImpl = (async () => {
+      calls++;
+      return calls === 1
+        ? fakeResponse({ ok: false, status: 429, retryAfter: retryAt })
+        : fakeResponse({ json: { owned_keys: [] } });
+    }) as unknown as typeof fetch;
+
+    await fetchOwnedLibrary({ apiKey: "key", fetchImpl, sleepImpl: async (ms) => sleeps.push(ms) });
+    expect(sleeps[0]).toBeGreaterThanOrEqual(3_500);
+    expect(sleeps[0]).toBeLessThanOrEqual(5_000);
+  });
+
+  test("falls back to exponential backoff for invalid or negative Retry-After values", async () => {
+    for (const retryAfter of ["not-a-date", "-1"]) {
+      let calls = 0;
+      const sleeps: number[] = [];
+      const fetchImpl = (async () => {
+        calls++;
+        return calls === 1
+          ? fakeResponse({ ok: false, status: 429, retryAfter })
+          : fakeResponse({ json: { owned_keys: [] } });
+      }) as unknown as typeof fetch;
+      await fetchOwnedLibrary({
+        apiKey: "key",
+        fetchImpl,
+        sleepImpl: async (ms) => sleeps.push(ms),
+      });
+      expect(sleeps).toEqual([1_000]);
+    }
+  });
+
   test("gives up after the retry budget and surfaces the 429", async () => {
     const fetchImpl = (async () =>
-      fakeResponse({ ok: false, status: 429, statusText: "Too Many Requests" })) as unknown as typeof fetch;
+      fakeResponse({
+        ok: false,
+        status: 429,
+        statusText: "Too Many Requests",
+      })) as unknown as typeof fetch;
 
     await expect(
       fetchOwnedLibrary({ apiKey: "key", fetchImpl, sleepImpl: async () => {} })
@@ -209,6 +247,64 @@ describe("fetchOwnedLibrary", () => {
 
     const packs = await fetchOwnedLibrary({ apiKey: "key", fetchImpl });
     expect(packs[0]).toMatchObject({ title: "?", classification: "?", shortText: "" });
+  });
+
+  test("preserves string classification and short-text fields", async () => {
+    const fetchImpl = (async (url: string) =>
+      fakeResponse({
+        json:
+          new URL(url).searchParams.get("page") === "1"
+            ? {
+                owned_keys: [
+                  {
+                    id: 1,
+                    game: { id: 2, title: "Pack", classification: "asset", short_text: "Audio" },
+                  },
+                ],
+              }
+            : { owned_keys: [] },
+      })) as unknown as typeof fetch;
+    expect((await fetchOwnedLibrary({ apiKey: "key", fetchImpl }))[0]).toMatchObject({
+      classification: "asset",
+      shortText: "Audio",
+    });
+  });
+
+  test("keeps the API key out of the URL and sends it as a bearer credential", async () => {
+    let requested = "";
+    let authorization = "";
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      requested = url;
+      authorization = new Headers(init?.headers).get("authorization") ?? "";
+      return fakeResponse({ json: { owned_keys: [] } });
+    }) as unknown as typeof fetch;
+
+    await fetchOwnedLibrary({ apiKey: "key/with space", fetchImpl });
+    expect(requested).toBe("https://api.itch.io/profile/owned-keys?page=1");
+    expect(requested).not.toContain("key/with space");
+    expect(authorization).toBe("Bearer key/with space");
+  });
+
+  test("validates options before making a request", async () => {
+    const fetchImpl = vi.fn() as unknown as typeof fetch;
+    await expect(fetchOwnedLibrary({ apiKey: "   ", fetchImpl })).rejects.toThrow(
+      /must not be empty/
+    );
+    for (const maxPages of [0, -1, 1.5]) {
+      await expect(fetchOwnedLibrary({ apiKey: "key", maxPages, fetchImpl })).rejects.toThrow(
+        /positive integer/
+      );
+    }
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    { body: { owned_keys: [null] }, message: /not an object/ },
+    { body: { owned_keys: [{ id: "1", game: { id: 2 } }] }, message: /invalid key id/ },
+    { body: { owned_keys: [{ id: 1, game: { id: "2" } }] }, message: /invalid game id/ },
+  ])("rejects malformed owned-key rows ($message)", async ({ body, message }) => {
+    const fetchImpl = (async () => fakeResponse({ json: body })) as unknown as typeof fetch;
+    await expect(fetchOwnedLibrary({ apiKey: "key", fetchImpl })).rejects.toThrow(message);
   });
 
   test("uses the real default sleepImpl when retrying a 429 without an injected sleep", async () => {

@@ -7,7 +7,7 @@ Thanks for taking the time to contribute.
 ```sh
 corepack enable
 pnpm install
-pnpm verify   # lint, typecheck, test, build — the same gate CI runs
+pnpm verify   # format/lint, types, 100% core coverage, build, package inspection
 ```
 
 Node and pnpm versions are pinned in `package.json` under `engines` and
@@ -19,9 +19,10 @@ version matches CI.
 1. Branch off `main`.
 2. Write the test first. A bug fix should come with a test that fails without it.
 3. Run `pnpm verify`. A change is not ready while any part of that is red.
+   When an example changes, run it against the freshly built package too.
 4. Commit with [Conventional Commits](https://www.conventionalcommits.org):
-   `fix:`, `feat:`, `docs:`, `refactor:`, `test:`, `chore:`. This is enforced by
-   commitlint, and it is what drives the changelog and the next version number.
+   `fix:`, `feat:`, `docs:`, `refactor:`, `test:`, `chore:`. Release Please uses
+   these prefixes to drive the changelog and the next version number.
 5. Open a pull request describing what changed and why.
 
 ## What gets reviewed
@@ -31,6 +32,10 @@ version matches CI.
   `BREAKING CHANGE:` footer.
 - Are the types right for consumers? CI runs `publint` and
   `arethetypeswrong` because broken types only surface at integration time.
+- Does it preserve partial results and existing files when a backend, download,
+  extraction, or normalization step fails?
+- Are user-controlled URLs, paths, archive members, and credentials handled at
+  the trust boundary rather than assumed safe?
 
 ## Releases
 

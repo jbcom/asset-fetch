@@ -1,6 +1,14 @@
-import { copyFileSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { extname, join } from "node:path";
 import { spawnSync } from "node:child_process";
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { basename, extname, join } from "node:path";
 
 export interface PromoteSlot {
   /** Destination filename stem, e.g. "ambient-pad" — becomes
@@ -53,6 +61,15 @@ export interface AssetManifestEntry {
   sourceCount: number;
 }
 
+const AUDIO_EXT_RE = /^\.(wav|mp3|ogg|flac)$/i;
+const SAFE_SLOT_RE = /^[a-z0-9][a-z0-9_-]*$/i;
+
+interface PlannedFile {
+  source: string;
+  destinationName: string;
+  destinationPath: string;
+}
+
 /**
  * Copy curated slot files from wherever fetchItchAssets/extractArchives put
  * them into a game's public asset directory, optionally loudness-normalizing
@@ -63,45 +80,89 @@ export interface AssetManifestEntry {
  */
 export function promoteAssets(options: PromoteOptions): PromoteResult {
   const { slots, targetDir, apply = false, normalize = false } = options;
-  if (apply) mkdirSync(targetDir, { recursive: true });
-
   const written: Record<string, string[]> = {};
   const manifest: AssetManifestEntry[] = [];
+  const planned: PlannedFile[] = [];
+  const slotNames = new Set<string>();
+  const destinationNames = new Map<string, string>();
 
   for (const slot of slots) {
+    if (!SAFE_SLOT_RE.test(slot.name)) {
+      throw new Error(
+        `invalid slot name ${JSON.stringify(slot.name)}: use letters, numbers, _ or -`
+      );
+    }
+    const slotIdentity = slot.name.toLowerCase();
+    if (slotNames.has(slotIdentity)) throw new Error(`duplicate slot name: ${slot.name}`);
+    if (slot.sources.length === 0) throw new Error(`slot ${slot.name} has no source files`);
+    slotNames.add(slotIdentity);
+
     const destPaths: string[] = [];
     slot.sources.forEach((src, i) => {
-      const ext = extname(src) || ".ogg";
+      const sourceExtension = extname(src);
+      if (sourceExtension && !AUDIO_EXT_RE.test(sourceExtension)) {
+        throw new Error(`unsupported audio extension for ${src}: ${sourceExtension}`);
+      }
+      const ext = (sourceExtension || ".ogg").toLowerCase();
       const destName = slot.sources.length > 1 ? `${slot.name}-${i}${ext}` : `${slot.name}${ext}`;
       const dest = join(targetDir, destName);
-      destPaths.push(dest);
-      if (!apply) return;
-
-      copyFileSync(src, dest);
-      if (normalize) {
-        const normalized = `${dest}.norm${ext}`;
-        const result = spawnSync(
-          "ffmpeg",
-          ["-y", "-i", dest, "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", normalized],
-          { stdio: "ignore" }
-        );
-        if (result.status === 0) {
-          copyFileSync(normalized, dest);
-          spawnSync("rm", ["-f", normalized]);
-        }
+      const destinationIdentity = destName.toLowerCase();
+      const existingOwner = destinationNames.get(destinationIdentity);
+      if (existingOwner) {
+        throw new Error(`slots ${existingOwner} and ${slot.name} both produce ${destName}`);
       }
+      destinationNames.set(destinationIdentity, slot.name);
+      destPaths.push(dest);
+      planned.push({ source: src, destinationName: destName, destinationPath: dest });
     });
     written[slot.name] = destPaths;
     manifest.push({
       slot: slot.name,
-      // dest is always built via join(targetDir, destName), so split("/").pop()
-      // can never actually return undefined here — the ?? p fallback exists only
-      // to satisfy TypeScript's Array#pop() signature (T | undefined), not because
-      // this path is reachable at runtime.
-      /* v8 ignore next */
-      files: destPaths.map((p) => p.split("/").pop() ?? p),
+      files: destPaths.map((p) => basename(p)),
       sourceCount: slot.sources.length,
     });
+  }
+
+  if (!apply) return { written, manifest };
+
+  mkdirSync(targetDir, { recursive: true });
+  const staging = mkdtempSync(join(targetDir, ".asset-fetch-promote-"));
+  try {
+    for (const file of planned) {
+      const staged = join(staging, file.destinationName);
+      copyFileSync(file.source, staged);
+      if (!normalize) continue;
+
+      const ext = extname(staged);
+      const normalized = `${staged}.norm${ext}`;
+      try {
+        const result = spawnSync(
+          "ffmpeg",
+          ["-y", "-i", staged, "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", normalized],
+          { stdio: "ignore" }
+        );
+        if (result.status === 0) copyFileSync(normalized, staged);
+      } finally {
+        rmSync(normalized, { force: true });
+      }
+    }
+
+    const namesInTarget = readdirSync(targetDir);
+    for (const slotName of slotNames) {
+      const escaped = slotName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const stalePattern = new RegExp(`^${escaped}(?:-\\d+)?\\.(?:wav|mp3|ogg|flac)$`, "i");
+      for (const name of namesInTarget) {
+        if (stalePattern.test(name) && !destinationNames.has(name.toLowerCase())) {
+          rmSync(join(targetDir, name), { force: true });
+        }
+      }
+    }
+
+    for (const file of planned) {
+      renameSync(join(staging, file.destinationName), file.destinationPath);
+    }
+  } finally {
+    rmSync(staging, { recursive: true, force: true });
   }
 
   return { written, manifest };
@@ -115,9 +176,17 @@ export function promoteAssets(options: PromoteOptions): PromoteResult {
  * for a consuming game to tell a stale manifest from a freshly-promoted
  * one) and `slots` is `manifest` as given. */
 export function writeAssetManifest(targetDir: string, manifest: AssetManifestEntry[]): void {
+  mkdirSync(targetDir, { recursive: true });
+  const temporaryDir = mkdtempSync(join(targetDir, ".asset-fetch-manifest-"));
+  const temporaryPath = join(temporaryDir, "manifest.json");
   const path = join(targetDir, "manifest.json");
   const generatedAt = new Date().toISOString();
-  writeFileSync(path, `${JSON.stringify({ generatedAt, slots: manifest }, null, 2)}\n`);
+  try {
+    writeFileSync(temporaryPath, `${JSON.stringify({ generatedAt, slots: manifest }, null, 2)}\n`);
+    renameSync(temporaryPath, path);
+  } finally {
+    rmSync(temporaryDir, { recursive: true, force: true });
+  }
 }
 
 /** Recursively list every audio file under a directory — the raw-extracted
@@ -126,11 +195,13 @@ export function writeAssetManifest(targetDir: string, manifest: AssetManifestEnt
 export function listExtractedAudioFiles(dir: string): string[] {
   const out: string[] = [];
   const walk = (d: string) => {
-    for (const entry of readdirSync(d)) {
-      const full = join(d, entry);
-      const stat = statSync(full);
-      if (stat.isDirectory()) walk(full);
-      else if (/\.(wav|mp3|ogg|flac)$/i.test(entry)) out.push(full);
+    const entries = readdirSync(d, { withFileTypes: true }).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+    for (const entry of entries) {
+      const full = join(d, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.isFile() && AUDIO_EXT_RE.test(extname(entry.name))) out.push(full);
     }
   };
   walk(dir);

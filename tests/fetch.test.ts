@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -11,6 +19,9 @@ type SpawnSyncHandler = (cmd: string, args?: string[]) => SpawnSyncResult;
 // through a mutable handler installed per test, mocked once at module load.
 let spawnSyncHandler: SpawnSyncHandler = () => ({ status: 0 });
 const spawnSyncCalls: Array<{ cmd: string; args?: string[] }> = [];
+let unrarHandler:
+  | ((options: { filepath: string; targetPath: string }) => Promise<unknown>)
+  | undefined;
 
 vi.mock("node:child_process", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:child_process")>();
@@ -23,6 +34,15 @@ vi.mock("node:child_process", async (importOriginal) => {
   };
 });
 
+vi.mock("node-unrar-js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node-unrar-js")>();
+  return {
+    ...actual,
+    createExtractorFromFile: (options: { filepath: string; targetPath: string }) =>
+      unrarHandler ? unrarHandler(options) : actual.createExtractorFromFile(options),
+  };
+});
+
 function useSpawnSync(handler: SpawnSyncHandler): void {
   spawnSyncHandler = handler;
 }
@@ -31,11 +51,16 @@ function calledWith(cmd: string): Array<{ cmd: string; args?: string[] }> {
   return spawnSyncCalls.filter((c) => c.cmd === cmd);
 }
 
+function jsonResponse(value: unknown): Response {
+  return new Response(JSON.stringify(value), { headers: { "content-type": "application/json" } });
+}
+
 const { extractArchives, fetchItchAssets, slugify } = await import("../src/fetch.js");
 
 beforeEach(() => {
   spawnSyncCalls.length = 0;
   spawnSyncHandler = () => ({ status: 0 });
+  unrarHandler = undefined;
 });
 
 describe("slugify", () => {
@@ -87,7 +112,7 @@ describe("fetchItchAssets", () => {
     const md5 = (await import("node:crypto")).createHash("md5").update(content).digest("hex");
 
     mkdirSync(archivesDir, { recursive: true });
-    writeFileSync(join(archivesDir, "test-pack__pack.zip"), content);
+    writeFileSync(join(archivesDir, "test-pack-1__pack.zip"), content);
 
     const apiGetImpl = async (path: string) => {
       if (path.includes("/uploads")) {
@@ -164,7 +189,7 @@ describe("fetchItchAssets", () => {
   test("skipping an already-present loose (non-archive) file leaves `archives` empty", async () => {
     const archivesDir = join(dir, "archives");
     const looseDir = join(dir, "loose");
-    const packSlug = "loose-skip-pack";
+    const packSlug = "loose-skip-pack-1";
     const content = Buffer.from("already have this");
     mkdirSync(join(looseDir, packSlug), { recursive: true });
     writeFileSync(join(looseDir, packSlug, "cue.wav"), content);
@@ -283,7 +308,7 @@ describe("fetchItchAssets", () => {
     }
   });
 
-  test("downloads for real (non-dry) via the system curl, writing the file to disk", async () => {
+  test("downloads for real (non-dry), writing the verified file to disk", async () => {
     const archivesDir = join(dir, "archives");
     const looseDir = join(dir, "loose");
     const content = "zip contents";
@@ -295,26 +320,151 @@ describe("fetchItchAssets", () => {
       return { url: "https://example.com/signed.zip" };
     };
 
-    useSpawnSync((cmd, args) => {
-      if (cmd === "curl") {
-        const outIdx = args?.indexOf("-o") ?? -1;
-        const dest = outIdx >= 0 ? args?.[outIdx + 1] : undefined;
-        if (dest) writeFileSync(dest, content);
-      }
-      return { status: 0 };
-    });
-
     const result = await fetchItchAssets({
       apiKey: "key",
       packs: [{ keyId: 1, gameId: 1, title: "Real Download" }],
       archivesDir,
       looseDir,
       apiGetImpl,
+      downloadImpl: async (_url, destination) => writeFileSync(destination, content),
     });
 
     expect(result.downloaded).toBe(1);
     expect(result.failed).toBe(0);
-    expect(existsSync(join(archivesDir, "real-download__pack.zip"))).toBe(true);
+    expect(existsSync(join(archivesDir, "real-download-1__pack.zip"))).toBe(true);
+  });
+
+  test("uses the built-in API client and streaming downloader", async () => {
+    const archivesDir = join(dir, "archives");
+    const looseDir = join(dir, "loose");
+    const content = "native fetch archive";
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("/uploads?")) {
+        return jsonResponse({ uploads: [{ id: 9, filename: "pack.zip", size: content.length }] });
+      }
+      if (url.includes("/download?")) {
+        return jsonResponse({ url: "https://cdn.example/native.zip" });
+      }
+      return new Response(content);
+    }) as unknown as typeof fetch;
+
+    const result = await fetchItchAssets({
+      apiKey: "key",
+      packs: [{ keyId: 1, gameId: 2, title: "Native Fetch" }],
+      archivesDir,
+      looseDir,
+      fetchImpl,
+    });
+
+    expect(result).toMatchObject({ downloaded: 1, failed: 0 });
+    expect(readFileSync(join(archivesDir, "native-fetch-2__pack.zip"), "utf8")).toBe(content);
+  });
+
+  test("keeps an existing destination intact when its replacement download fails", async () => {
+    const archivesDir = join(dir, "archives");
+    const looseDir = join(dir, "loose");
+    mkdirSync(archivesDir, { recursive: true });
+    const destination = join(archivesDir, "preserved-1__pack.zip");
+    writeFileSync(destination, "previous archive");
+
+    const apiGetImpl = async (path: string) =>
+      path.includes("/uploads")
+        ? { uploads: [{ id: 1, filename: "pack.zip", size: 99 }] }
+        : { url: "https://example.com/signed.zip" };
+    const result = await fetchItchAssets({
+      apiKey: "key",
+      packs: [{ keyId: 1, gameId: 1, title: "Preserved" }],
+      archivesDir,
+      looseDir,
+      apiGetImpl,
+      downloadImpl: async () => {
+        throw new Error("download failed");
+      },
+    });
+
+    expect(result).toMatchObject({ downloaded: 0, failed: 1 });
+    expect(readFileSync(destination, "utf8")).toBe("previous archive");
+    expect(readdirSync(archivesDir).some((name) => name.startsWith(".asset-fetch-"))).toBe(false);
+  });
+
+  test("rejects a same-size download whose MD5 is wrong and removes its temporary file", async () => {
+    const archivesDir = join(dir, "archives");
+    const looseDir = join(dir, "loose");
+    const apiGetImpl = async (path: string) =>
+      path.includes("/uploads")
+        ? {
+            uploads: [
+              {
+                id: 1,
+                filename: "pack.zip",
+                size: 4,
+                md5_hash: "00000000000000000000000000000000",
+              },
+            ],
+          }
+        : { url: "https://example.com/signed.zip" };
+    const result = await fetchItchAssets({
+      apiKey: "key",
+      packs: [{ keyId: 1, gameId: 1, title: "Wrong Hash" }],
+      archivesDir,
+      looseDir,
+      apiGetImpl,
+      downloadImpl: async (_url, destination) => writeFileSync(destination, "same"),
+    });
+
+    expect(result.failed).toBe(1);
+    expect(existsSync(join(archivesDir, "wrong-hash-1__pack.zip"))).toBe(false);
+    expect(readdirSync(archivesDir)).toEqual([]);
+  });
+
+  test("uses game ids to keep otherwise-colliding title slugs separate", async () => {
+    const result = await fetchItchAssets({
+      apiKey: "key",
+      packs: [
+        { keyId: 1, gameId: 10, title: "Same Pack" },
+        { keyId: 2, gameId: 20, title: "Same--Pack" },
+      ],
+      archivesDir: join(dir, "archives"),
+      looseDir: join(dir, "loose"),
+      dry: true,
+      apiGetImpl: async () => ({ uploads: [{ id: 1, filename: "pack.zip", size: 1 }] }),
+    });
+
+    expect(result.archives.map((path) => path.split("/").pop())).toEqual([
+      "same-pack-10__pack.zip",
+      "same-pack-20__pack.zip",
+    ]);
+  });
+
+  test("falls back to a readable pack prefix when a title has no ASCII slug", async () => {
+    const result = await fetchItchAssets({
+      apiKey: "key",
+      packs: [{ keyId: 1, gameId: 42, title: "!!!" }],
+      archivesDir: join(dir, "archives"),
+      looseDir: join(dir, "loose"),
+      dry: true,
+      apiGetImpl: async () => ({ uploads: [{ id: 1, filename: "pack.zip", size: 1 }] }),
+    });
+    expect(result.archives[0]).toMatch(/pack-42__pack\.zip$/);
+  });
+
+  test("turns an exception from the download transport into a counted failure", async () => {
+    const apiGetImpl = async (path: string) =>
+      path.includes("/uploads")
+        ? { uploads: [{ id: 1, filename: "pack.zip", size: 1 }] }
+        : { url: "https://example.com/pack.zip" };
+    const result = await fetchItchAssets({
+      apiKey: "key",
+      packs: [{ keyId: 1, gameId: 1, title: "Throws" }],
+      archivesDir: join(dir, "archives"),
+      looseDir: join(dir, "loose"),
+      apiGetImpl,
+      downloadImpl: async () => {
+        throw new Error("transport failed");
+      },
+    });
+    expect(result.failed).toBe(1);
   });
 
   test("marks a pack failed when the download URL is not https", async () => {
@@ -376,7 +526,7 @@ describe("fetchItchAssets", () => {
     expect(result.failed).toBe(1);
   });
 
-  test("marks a pack failed when curl exits non-zero or writes a size-mismatched file", async () => {
+  test("marks a pack failed when the download transport writes a size-mismatched file", async () => {
     const archivesDir = join(dir, "archives");
     const looseDir = join(dir, "loose");
 
@@ -387,23 +537,13 @@ describe("fetchItchAssets", () => {
       return { url: "https://example.com/signed.zip" };
     };
 
-    useSpawnSync((cmd, args) => {
-      if (cmd === "curl") {
-        const outIdx = args?.indexOf("-o") ?? -1;
-        const dest = outIdx >= 0 ? args?.[outIdx + 1] : undefined;
-        // Write a file whose size doesn't match upload.size (999) to hit
-        // the post-download size-mismatch failure branch.
-        if (dest) writeFileSync(dest, "short");
-      }
-      return { status: 0 };
-    });
-
     const result = await fetchItchAssets({
       apiKey: "key",
       packs: [{ keyId: 1, gameId: 1, title: "Mismatched Size" }],
       archivesDir,
       looseDir,
       apiGetImpl,
+      downloadImpl: async (_url, destination) => writeFileSync(destination, "short"),
     });
 
     expect(result.failed).toBe(1);
@@ -421,29 +561,21 @@ describe("fetchItchAssets", () => {
       return { url: "https://example.com/cue.wav" };
     };
 
-    useSpawnSync((cmd, args) => {
-      if (cmd === "curl") {
-        const outIdx = args?.indexOf("-o") ?? -1;
-        const dest = outIdx >= 0 ? args?.[outIdx + 1] : undefined;
-        if (dest) writeFileSync(dest, "aaaaa");
-      }
-      return { status: 0 };
-    });
-
     const result = await fetchItchAssets({
       apiKey: "key",
       packs: [{ keyId: 1, gameId: 1, title: "Loose Cue" }],
       archivesDir,
       looseDir,
       apiGetImpl,
+      downloadImpl: async (_url, destination) => writeFileSync(destination, "aaaaa"),
     });
 
     expect(result.downloaded).toBe(1);
-    expect(existsSync(join(looseDir, "loose-cue", "cue.wav"))).toBe(true);
+    expect(existsSync(join(looseDir, "loose-cue-1", "cue.wav"))).toBe(true);
   });
 });
 
-describe("fetchItchAssets default apiGet (real curl invocation)", () => {
+describe("fetchItchAssets default API transport", () => {
   let dir: string;
 
   beforeEach(() => {
@@ -454,11 +586,8 @@ describe("fetchItchAssets default apiGet (real curl invocation)", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  test("uses the built-in curl-based apiGet when no apiGetImpl is injected", async () => {
-    useSpawnSync((cmd) => {
-      if (cmd === "curl") return { status: 0, stdout: JSON.stringify({ uploads: [] }) };
-      return { status: 0 };
-    });
+  test("uses fetch with a bearer token when no apiGetImpl is injected", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ uploads: [] })) as unknown as typeof fetch;
 
     const result = await fetchItchAssets({
       apiKey: "real-key",
@@ -466,21 +595,18 @@ describe("fetchItchAssets default apiGet (real curl invocation)", () => {
       archivesDir: join(dir, "archives"),
       looseDir: join(dir, "loose"),
       dry: true,
+      fetchImpl,
     });
-    // uploads: [] -> no usable uploads -> counted as failed, but the point
-    // of this test is that defaultApiGet's curl+JSON.parse path ran at all.
     expect(result.failed).toBe(1);
-    const curlCalls = calledWith("curl");
-    expect(curlCalls.length).toBeGreaterThan(0);
-    expect(curlCalls[0]?.args).toEqual(expect.arrayContaining(["-sS", "-fL"]));
+    expect(fetchImpl).toHaveBeenCalledWith(
+      expect.stringContaining("/uploads?download_key_id=1"),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer real-key" }),
+      })
+    );
   });
 
-  test("defaultApiGet throws when curl exits non-zero", async () => {
-    useSpawnSync((cmd) => {
-      if (cmd === "curl") return { status: 22, stdout: "" };
-      return { status: 0 };
-    });
-
+  test("defaultApiGet handles HTTP failures", async () => {
     const result = await fetchItchAssets({
       apiKey: "real-key",
       packs: [{ keyId: 1, gameId: 1, title: "Curl Fails" }],
@@ -488,16 +614,13 @@ describe("fetchItchAssets default apiGet (real curl invocation)", () => {
       looseDir: join(dir, "loose"),
       dry: true,
       retrySleepImpl: async () => {},
+      fetchImpl: (async () =>
+        new Response("no", { status: 503, statusText: "Unavailable" })) as typeof fetch,
     });
     expect(result.failed).toBe(1);
   });
 
-  test("defaultApiGet throws on a non-JSON curl response", async () => {
-    useSpawnSync((cmd) => {
-      if (cmd === "curl") return { status: 0, stdout: "not json" };
-      return { status: 0 };
-    });
-
+  test("defaultApiGet handles a non-JSON response", async () => {
     const result = await fetchItchAssets({
       apiKey: "real-key",
       packs: [{ keyId: 1, gameId: 1, title: "Bad JSON" }],
@@ -505,6 +628,7 @@ describe("fetchItchAssets default apiGet (real curl invocation)", () => {
       looseDir: join(dir, "loose"),
       dry: true,
       retrySleepImpl: async () => {},
+      fetchImpl: (async () => new Response("not json")) as typeof fetch,
     });
     expect(result.failed).toBe(1);
   });
@@ -534,8 +658,9 @@ describe("extractArchives", () => {
     expect(result.extracted).toEqual(["my-pack"]);
     expect(result.failed).toEqual([]);
     const unzipCalls = calledWith("unzip");
-    expect(unzipCalls.length).toBe(1);
-    expect(unzipCalls[0]?.args).toEqual(expect.arrayContaining(["-q", "-o"]));
+    expect(unzipCalls.length).toBe(2);
+    expect(unzipCalls[0]?.args).toEqual(expect.arrayContaining(["-Z1"]));
+    expect(unzipCalls[1]?.args).toEqual(expect.arrayContaining(["-q", "-o"]));
     expect(existsSync(join(extractedDir, "my-pack"))).toBe(true);
   });
 
@@ -546,8 +671,9 @@ describe("extractArchives", () => {
     const result = await extractArchives(archivesDir, extractedDir);
     expect(result.extracted).toEqual(["seven"]);
     const sevenZipCalls = calledWith("7z");
-    expect(sevenZipCalls.length).toBe(1);
-    expect(sevenZipCalls[0]?.args).toEqual(expect.arrayContaining(["x", "-y"]));
+    expect(sevenZipCalls.length).toBe(2);
+    expect(sevenZipCalls[0]?.args).toEqual(expect.arrayContaining(["l", "-slt"]));
+    expect(sevenZipCalls[1]?.args).toEqual(expect.arrayContaining(["x", "-y"]));
   });
 
   test("extracts a .rar archive via node-unrar-js", async () => {
@@ -558,6 +684,31 @@ describe("extractArchives", () => {
 
     const result = await extractArchives(archivesDir, extractedDir);
     expect(result.failed).toEqual(["compressed.rar"]);
+  });
+
+  test("validates and extracts a rar archive through node-unrar-js", async () => {
+    writeFileSync(join(archivesDir, "valid.rar"), "mock rar");
+    const extractedNames: string[] = [];
+    unrarHandler = async ({ targetPath }) => ({
+      getFileList: () => ({
+        fileHeaders: (function* () {
+          yield { name: "nested/cue.wav" };
+        })(),
+      }),
+      extract: () => ({
+        files: (function* () {
+          mkdirSync(join(targetPath, "nested"), { recursive: true });
+          writeFileSync(join(targetPath, "nested", "cue.wav"), "audio");
+          extractedNames.push("nested/cue.wav");
+          yield { fileHeader: { name: "nested/cue.wav" } };
+        })(),
+      }),
+    });
+
+    const result = await extractArchives(archivesDir, extractedDir);
+    expect(result.extracted).toEqual(["valid"]);
+    expect(extractedNames).toEqual(["nested/cue.wav"]);
+    expect(existsSync(join(extractedDir, "valid", "nested", "cue.wav"))).toBe(true);
   });
 
   test("skips non-archive files in archivesDir", async () => {
@@ -593,5 +744,69 @@ describe("extractArchives", () => {
     const result = await extractArchives(archivesDir, extractedDir);
     expect(result.failed).toEqual(["broken.zip"]);
     expect(result.extracted).toEqual([]);
+  });
+
+  test("records non-zero extraction exits as failures and retries them on the next run", async () => {
+    writeFileSync(join(archivesDir, "retry.zip"), "fake zip bytes");
+    useSpawnSync((_cmd, args) => ({ status: args?.includes("-Z1") ? 0 : 2 }));
+
+    const first = await extractArchives(archivesDir, extractedDir);
+    expect(first.failed).toEqual(["retry.zip"]);
+    expect(existsSync(join(extractedDir, "retry"))).toBe(false);
+
+    spawnSyncCalls.length = 0;
+    useSpawnSync(() => ({ status: 0 }));
+    const second = await extractArchives(archivesDir, extractedDir);
+    expect(second.extracted).toEqual(["retry"]);
+    expect(calledWith("unzip")).toHaveLength(2);
+  });
+
+  test("records a zip listing failure before extraction", async () => {
+    writeFileSync(join(archivesDir, "bad-list.zip"), "fake zip bytes");
+    useSpawnSync(() => ({ status: 3 }));
+    const result = await extractArchives(archivesDir, extractedDir);
+    expect(result.failed).toEqual(["bad-list.zip"]);
+    expect(calledWith("unzip")).toHaveLength(1);
+  });
+
+  test("handles 7z listing and extraction failures, and parses safe listed entries", async () => {
+    const archive = join(archivesDir, "listed.7z");
+    writeFileSync(archive, "fake 7z bytes");
+
+    useSpawnSync((_cmd, args) => (args?.[0] === "l" ? { status: 4, stdout: "" } : { status: 0 }));
+    expect((await extractArchives(archivesDir, extractedDir)).failed).toEqual(["listed.7z"]);
+
+    useSpawnSync((_cmd, args) =>
+      args?.[0] === "l"
+        ? { status: 0, stdout: "metadata\n----------\nPath = nested/cue.wav\n" }
+        : { status: 5 }
+    );
+    expect((await extractArchives(archivesDir, extractedDir)).failed).toEqual(["listed.7z"]);
+
+    useSpawnSync((_cmd, args) =>
+      args?.[0] === "l"
+        ? { status: 0, stdout: "metadata\n----------\nPath = nested/cue.wav\n" }
+        : { status: 0 }
+    );
+    expect((await extractArchives(archivesDir, extractedDir)).extracted).toEqual(["listed"]);
+  });
+
+  test("uses an archive fallback slug when the filename stem has no ASCII characters", async () => {
+    writeFileSync(join(archivesDir, "!!!.zip"), "fake zip bytes");
+    useSpawnSync(() => ({ status: 0 }));
+    const result = await extractArchives(archivesDir, extractedDir);
+    expect(result.extracted).toEqual(["archive"]);
+  });
+
+  test("rejects traversal paths before invoking the zip extractor", async () => {
+    writeFileSync(join(archivesDir, "unsafe.zip"), "fake zip bytes");
+    useSpawnSync((_cmd, args) =>
+      args?.includes("-Z1") ? { status: 0, stdout: "../outside.wav\n" } : { status: 0 }
+    );
+
+    const result = await extractArchives(archivesDir, extractedDir);
+    expect(result.failed).toEqual(["unsafe.zip"]);
+    expect(calledWith("unzip")).toHaveLength(1);
+    expect(existsSync(join(dir, "outside.wav"))).toBe(false);
   });
 });

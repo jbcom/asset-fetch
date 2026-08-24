@@ -3,7 +3,7 @@
 // No bundler — each source module maps 1:1 to a dist module.
 
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import esbuild from "esbuild";
@@ -16,10 +16,18 @@ if (existsSync(distDir)) {
   rmSync(distDir, { recursive: true, force: true });
 }
 
-execFileSync("pnpm", ["exec", "tsc", "-p", path.join(root, "tsconfig.json")], {
-  cwd: root,
-  stdio: "inherit",
-});
+execFileSync(
+  process.execPath,
+  [
+    path.join(root, "node_modules", "typescript", "bin", "tsc"),
+    "-p",
+    path.join(root, "tsconfig.json"),
+  ],
+  {
+    cwd: root,
+    stdio: "inherit",
+  }
+);
 
 const entryPoints = readdirSync(srcDir)
   .filter((file) => /\.ts$/.test(file) && !file.endsWith(".test.ts") && file !== "cli.ts")
