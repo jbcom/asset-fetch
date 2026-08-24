@@ -39,7 +39,7 @@ export interface AssetManifestEntry {
  * them into a game's public asset directory, optionally loudness-normalizing
  * via ffmpeg. Idempotent (re-running overwrites the slot's files, never
  * appends a growing pile) and dry-run by default — the caller decides when
- * `apply: true` actually touches disk, matching the fleet convention of a
+ * `apply: true` actually touches disk, following the convention of a
  * safety-first promote step separate from the bulk itch fetch.
  */
 export function promoteAssets(options: PromoteOptions): PromoteResult {

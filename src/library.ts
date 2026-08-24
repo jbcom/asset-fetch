@@ -120,7 +120,7 @@ export type LibraryBucket = "audio" | "pixel-2d" | "3d-psx" | "tool" | "other";
 
 /** Coarse content-type classification from title+description text. Callers
  * needing a game-specific taxonomy should filter/re-bucket the raw list
- * themselves — this only separates the fleet's three recurring asset
+ * themselves — this only separates the three recurring asset
  * shapes (audio, 2D pixel art, 3D/voxel) from everything else. */
 export function classifyPack(pack: OwnedPack): LibraryBucket {
   const text = `${pack.title} ${pack.shortText}`.toLowerCase();

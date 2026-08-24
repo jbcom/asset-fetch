@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 /**
  * Resolve ITCH_API_KEY: process.env first, then a `.env` file in the given
- * root (gitignored convention across the fleet — `ITCH_API_KEY=<key>`).
+ * root (a gitignored convention — `ITCH_API_KEY=<key>`).
  * Returns undefined rather than throwing so callers can print their own
  * contextual error message.
  */
