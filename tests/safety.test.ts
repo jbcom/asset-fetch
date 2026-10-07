@@ -9,9 +9,8 @@ import {
   sanitizeKey,
 } from "../src/safety.js";
 
-// Creating symlinks on Windows needs a privilege CI runners do not grant by
-// default, and the containment audit is about the POSIX symlink vector.
-const symlinks = process.platform === "win32" ? test.skip : test;
+// Windows CI enables Developer Mode so real file and directory links are tested.
+const symlinks = test;
 
 let scratch: string[] = [];
 
@@ -104,7 +103,7 @@ describe("assertExtractionContained", () => {
     const dir = tmp();
     const outside = tmp();
     mkdirSync(join(dir, "a", "b"), { recursive: true });
-    symlinkSync(relative(join(dir, "a", "b"), outside), join(dir, "a", "b", "up"));
+    symlinkSync(relative(join(dir, "a", "b"), outside), join(dir, "a", "b", "up"), "dir");
     expect(() => assertExtractionContained(dir)).toThrow(/escapes extraction dir/);
   });
 
@@ -113,7 +112,7 @@ describe("assertExtractionContained", () => {
     const outside = tmp();
     mkdirSync(join(outside, "deep"));
     writeFileSync(join(outside, "deep", "file"), "x");
-    symlinkSync(outside, join(dir, "portal"));
+    symlinkSync(outside, join(dir, "portal"), "dir");
     expect(() => assertExtractionContained(dir)).toThrow(/escapes extraction dir/);
   });
 
@@ -126,7 +125,7 @@ describe("assertExtractionContained", () => {
   symlinks("does not loop forever on a self-referential symlink inside the tree", () => {
     const dir = tmp();
     mkdirSync(join(dir, "sub"));
-    symlinkSync(join(dir, "sub"), join(dir, "sub", "loop"));
+    symlinkSync(join(dir, "sub"), join(dir, "sub", "loop"), "dir");
     expect(() => assertExtractionContained(dir)).not.toThrow();
   });
 
@@ -141,7 +140,7 @@ describe("assertExtractionContained", () => {
     const dir = tmp();
     const outside = tmp();
     mkdirSync(join(dir, "pack", "nested"), { recursive: true });
-    symlinkSync(outside, join(dir, "pack", "nested", "escape"));
+    symlinkSync(outside, join(dir, "pack", "nested", "escape"), "dir");
     expect(() => assertExtractionContained(dir)).toThrow(/escapes extraction dir/);
   });
 });

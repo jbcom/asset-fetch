@@ -665,25 +665,22 @@ describe("extractArchives", () => {
     expect(existsSync(join(extractedDir, "my-pack"))).toBe(true);
   });
 
-  test.skipIf(process.platform === "win32")(
-    "discards an extraction whose symlink member escapes the staging directory",
-    async () => {
-      writeFileSync(join(archivesDir, "linked.zip"), "fake zip bytes");
-      const outside = join(dir, "outside");
-      mkdirSync(outside);
-      useSpawnSync((_cmd, args = []) => {
-        // The member name passes the lexical check; only the extracted tree shows the link.
-        if (args.includes("-q"))
-          symlinkSync(outside, join(args[args.indexOf("-d") + 1] ?? "", "link"));
-        return { status: 0, stdout: "link\n" };
-      });
+  test("discards an extraction whose symlink member escapes the staging directory", async () => {
+    writeFileSync(join(archivesDir, "linked.zip"), "fake zip bytes");
+    const outside = join(dir, "outside");
+    mkdirSync(outside);
+    useSpawnSync((_cmd, args = []) => {
+      // The member name passes the lexical check; only the extracted tree shows the link.
+      if (args.includes("-q"))
+        symlinkSync(outside, join(args[args.indexOf("-d") + 1] ?? "", "link"), "dir");
+      return { status: 0, stdout: "link\n" };
+    });
 
-      const result = await extractArchives(archivesDir, extractedDir);
+    const result = await extractArchives(archivesDir, extractedDir);
 
-      expect(result).toEqual({ extracted: [], failed: ["linked.zip"] });
-      expect(readdirSync(extractedDir)).toEqual([]);
-    }
-  );
+    expect(result).toEqual({ extracted: [], failed: ["linked.zip"] });
+    expect(readdirSync(extractedDir)).toEqual([]);
+  });
 
   test("extracts a .7z archive via the system 7z", async () => {
     writeFileSync(join(archivesDir, "seven.7z"), "fake 7z bytes");
