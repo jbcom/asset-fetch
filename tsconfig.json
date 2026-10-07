@@ -4,21 +4,19 @@
     "lib": ["ES2022"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "declaration": true,
-    "declarationMap": false,
-    "outDir": "dist",
-    "rootDir": "src",
-    "skipLibCheck": true,
-    "isolatedModules": true,
     "moduleDetection": "force",
+    "isolatedModules": true,
+    "skipLibCheck": true,
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
     "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "types": ["node"]
+    "types": ["node"],
+    "noEmit": true
   },
-  "include": ["src"],
-  "exclude": ["dist", "tests"]
+  "include": ["src", "tests"]
 }

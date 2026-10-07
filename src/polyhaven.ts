@@ -69,7 +69,7 @@ function positiveResultLimit(value: number | undefined): number {
 
 async function getJson(url: string, fetchImpl: typeof fetch): Promise<unknown> {
   const response = await fetchImpl(url, {
-    headers: { Accept: "application/json", "User-Agent": "@jbdevprimary/asset-fetch" },
+    headers: { Accept: "application/json", "User-Agent": "asset-fetch" },
     signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok)
@@ -220,7 +220,7 @@ function safeRelativePath(value: string): string {
 async function defaultDownload(urlValue: string, destination: string): Promise<void> {
   await downloadHttpsFile(urlValue, destination, {
     allowedHosts: ALLOWED_DOWNLOAD_HOSTS,
-    headers: { "User-Agent": "@jbdevprimary/asset-fetch" },
+    headers: { "User-Agent": "asset-fetch" },
     label: "Poly Haven download URL",
   });
 }

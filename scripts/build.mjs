@@ -21,7 +21,7 @@ execFileSync(
   [
     path.join(root, "node_modules", "typescript", "bin", "tsc"),
     "-p",
-    path.join(root, "tsconfig.json"),
+    path.join(root, "tsconfig.build.json"),
   ],
   {
     cwd: root,

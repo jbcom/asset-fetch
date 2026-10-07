@@ -21,7 +21,24 @@ function jsonResponse(value: unknown, init: ResponseInit = {}): Response {
   });
 }
 
+interface FixtureFile {
+  url: string;
+  size: number;
+  md5: string;
+}
+
 function variantFixture(main = "gltf", included = "texture", withInclude = true) {
+  const include: Record<string, FixtureFile> | undefined = withInclude
+    ? {
+        "textures/diffuse.jpg": {
+          url: "https://dl.polyhaven.org/diffuse.jpg",
+          size: included.length,
+          md5: md5(included),
+        },
+      }
+    : undefined;
+  // `include` is always present on the fixture so tests can replace entries
+  // in place; an empty map and a missing one mean the same thing to the code.
   return {
     gltf: {
       "1k": {
@@ -29,17 +46,7 @@ function variantFixture(main = "gltf", included = "texture", withInclude = true)
           url: "https://dl.polyhaven.org/model.gltf",
           size: main.length,
           md5: md5(main),
-          ...(withInclude
-            ? {
-                include: {
-                  "textures/diffuse.jpg": {
-                    url: "https://dl.polyhaven.org/diffuse.jpg",
-                    size: included.length,
-                    md5: md5(included),
-                  },
-                },
-              }
-            : {}),
+          include: include ?? {},
         },
       },
     },

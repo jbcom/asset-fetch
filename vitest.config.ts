@@ -6,10 +6,10 @@ export default defineConfig({
     environment: "node",
     coverage: {
       provider: "v8",
-      all: true,
       include: ["src/**/*.ts"],
+      // The CLI is exercised end to end against the built artifact, not in process.
       exclude: ["src/cli.ts"],
-      reporter: ["text", "json", "json-summary"],
+      reporter: ["text", "json", "json-summary", "lcov"],
       thresholds: {
         statements: 100,
         branches: 100,

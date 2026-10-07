@@ -183,7 +183,11 @@ describe("fetchOwnedLibrary", () => {
         : fakeResponse({ json: { owned_keys: [] } });
     }) as unknown as typeof fetch;
 
-    await fetchOwnedLibrary({ apiKey: "key", fetchImpl, sleepImpl: async (ms) => sleeps.push(ms) });
+    await fetchOwnedLibrary({
+      apiKey: "key",
+      fetchImpl,
+      sleepImpl: async (ms) => void sleeps.push(ms),
+    });
     expect(sleeps[0]).toBeGreaterThanOrEqual(3_500);
     expect(sleeps[0]).toBeLessThanOrEqual(5_000);
   });
@@ -201,7 +205,7 @@ describe("fetchOwnedLibrary", () => {
       await fetchOwnedLibrary({
         apiKey: "key",
         fetchImpl,
-        sleepImpl: async (ms) => sleeps.push(ms),
+        sleepImpl: async (ms) => void sleeps.push(ms),
       });
       expect(sleeps).toEqual([1_000]);
     }

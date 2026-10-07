@@ -23,35 +23,8 @@ jobs:
       tag: ${{ steps.release.outputs.tag_name }}
     steps:
       - id: release
-        uses: googleapis/release-please-action@v4
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
+          token: ${{ secrets.CI_GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-
-  publish:
-    needs: release-please
-    if: needs.release-please.outputs.released == 'true'
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      # id-token is what lets npm verify the build provenance and, once the
-      # package exists and the repo is public, publish without a token at all.
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.release-please.outputs.tag }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          registry-url: https://registry.npmjs.org
-      - run: corepack enable
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm verify
-      - name: Publish
-        # NPM_TOKEN is only needed until the package exists on npm. Once it does
-        # and trusted publishing is configured for this repo, drop the env block
-        # and the id-token permission alone is sufficient.
-        run: pnpm publish --access public --provenance --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

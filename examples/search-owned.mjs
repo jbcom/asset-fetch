@@ -1,4 +1,4 @@
-import { searchLibrary } from "@jbdevprimary/asset-fetch";
+import { searchLibrary } from "asset-fetch";
 
 const owned = [
   {

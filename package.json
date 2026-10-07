@@ -1,20 +1,29 @@
 {
-  "name": "@jbdevprimary/asset-fetch",
-  "version": "0.1.1",
-  "description": "Typed CLI and library for finding, verifying, extracting, and curating game assets from itch.io, Poly Haven, and local SQLite catalogs.",
-  "type": "module",
-  "license": "MIT",
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
-  },
-  "files": [
-    "dist",
-    "README.md",
-    "CHANGELOG.md",
-    "docs",
-    "examples"
+  "name": "asset-fetch",
+  "version": "0.2.0",
+  "description": "Typed CLI and library for finding, verifying, extracting, and curating game assets from itch.io, Poly Haven, and a local SQLite catalog.",
+  "keywords": [
+    "assets",
+    "asset-pipeline",
+    "itch.io",
+    "poly-haven",
+    "sqlite",
+    "3d-assets",
+    "cli",
+    "game-dev"
   ],
+  "homepage": "https://github.com/jbcom/asset-fetch#readme",
+  "bugs": {
+    "url": "https://github.com/jbcom/asset-fetch/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jbcom/asset-fetch.git"
+  },
+  "license": "MIT",
+  "author": "Jon Bogaty <jon@jonbogaty.com>",
+  "type": "module",
+  "sideEffects": false,
   "bin": {
     "asset-fetch": "./dist/cli.js"
   },
@@ -34,54 +43,73 @@
     },
     "./package.json": "./package.json"
   },
-  "sideEffects": false,
+  "files": [
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "dist",
+    "docs/API.md",
+    "docs/ARCHITECTURE.md",
+    "docs/TROUBLESHOOTING.md",
+    "docs/assets",
+    "examples",
+    "llms.txt"
+  ],
   "scripts": {
-    "clean": "node scripts/clean.mjs",
-    "format": "biome format --write .",
-    "format:check": "biome format .",
-    "lint": "biome lint .",
-    "check": "biome check .",
     "build": "node scripts/build.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --config vitest.config.ts",
-    "coverage": "vitest run --config vitest.config.ts --coverage",
-    "prepack": "pnpm run build",
-    "prepublishOnly": "pnpm run verify",
-    "pack:check": "pnpm pack --dry-run",
-    "verify": "pnpm run check && pnpm run typecheck && pnpm run coverage && pnpm run build && pnpm run pack:check"
+    "clean": "node scripts/clean.mjs",
+    "coverage": "vitest run --coverage",
+    "docs:build": "pnpm --filter asset-fetch-docs build",
+    "docs:check": "pnpm --filter asset-fetch-docs check",
+    "docs:dev": "pnpm --filter asset-fetch-docs dev",
+    "examples:check": "node examples/check.mjs",
+    "lint": "biome check .",
+    "lint:docs": "markdownlint-cli2 README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md CHANGELOG.md AGENTS.md \"docs/**/*.md\" \"!docs/node_modules/**\" \"!docs/dist/**\" .github/PULL_REQUEST_TEMPLATE.md",
+    "lint:fix": "biome check --write .",
+    "package:check": "publint && attw --pack . && node scripts/verify-package.mjs",
+    "prepack": "node scripts/build.mjs",
+    "prepare": "simple-git-hooks",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "verify": "pnpm run lint && pnpm run lint:docs && pnpm run typecheck && pnpm run coverage && pnpm run build && pnpm run examples:check && pnpm run package:check"
   },
-  "engines": {
-    "node": ">=24"
+  "simple-git-hooks": {
+    "pre-commit": "pnpm exec lint-staged",
+    "commit-msg": "pnpm exec commitlint --edit $1"
+  },
+  "lint-staged": {
+    "*.{ts,js,mjs,cjs,json}": [
+      "biome check --write --no-errors-on-unmatched"
+    ],
+    "*.md": [
+      "markdownlint-cli2"
+    ]
   },
   "dependencies": {
     "node-unrar-js": "^2.0.2"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.10",
-    "@types/node": "^24.10.1",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@biomejs/biome": "2.5.15",
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
+    "@types/node": "^24.13.3",
+    "@vitest/coverage-v8": "^5.0.3",
     "esbuild": "^0.28.1",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.5"
+    "lint-staged": "^17.3.0",
+    "markdownlint-cli2": "^0.23.2",
+    "publint": "^0.3.24",
+    "simple-git-hooks": "^2.13.1",
+    "typescript": "7.0.2",
+    "vitest": "^5.0.3"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/jbcom/asset-fetch.git"
+  "engines": {
+    "node": ">=24"
   },
-  "bugs": {
-    "url": "https://github.com/jbcom/asset-fetch/issues"
-  },
-  "homepage": "https://github.com/jbcom/asset-fetch#readme",
-  "packageManager": "pnpm@11.23.0",
-  "author": "Jon Bogaty <jon@jonbogaty.com>",
-  "keywords": [
-    "assets",
-    "asset-pipeline",
-    "itch.io",
-    "poly-haven",
-    "sqlite",
-    "3d-assets",
-    "cli",
-    "game-dev"
-  ]
+  "packageManager": "pnpm@12.10.1",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
 }

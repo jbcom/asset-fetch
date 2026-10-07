@@ -47,7 +47,7 @@ function usage(): string {
     "The legacy library/search/download command names remain aliases for itch subcommands.",
     "",
     "Promotion (raw-assets/ -> public/assets/) is intentionally NOT a CLI command —",
-    "import { promoteAssets } from '@jbdevprimary/asset-fetch' and write a short",
+    "import { promoteAssets } from 'asset-fetch' and write a short",
     "per-repo script that defines the actual slot->source mapping for your game.",
     "",
     "Asset kinds: audio, 2d, 3d, hdri, texture, tool, other.",

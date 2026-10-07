@@ -1,7 +1,11 @@
 packages:
   - .
-
-# esbuild ships a platform-specific binary via its postinstall script. Without
-# this the CJS half of the build has no compiler to run.
+  - docs
 allowBuilds:
   esbuild: true
+  sharp: true
+  simple-git-hooks: true
+minimumReleaseAgeExclude:
+  # Sourcey currently resolves this exact svgo release. Keep the normal 24-hour
+  # age policy for every other package and future svgo version.
+  - svgo@4.1.0

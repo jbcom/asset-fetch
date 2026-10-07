@@ -1,4 +1,4 @@
-import { promoteAssets, writeAssetManifest } from "@jbdevprimary/asset-fetch";
+import { promoteAssets, writeAssetManifest } from "asset-fetch";
 
 const [source, target = "public/assets/audio"] = process.argv.slice(2);
 if (!source) {
