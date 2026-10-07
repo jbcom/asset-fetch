@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/jbcom/asset-fetch/compare/v0.2.0...v0.2.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* support every maintained Node line (22, 24 and 26) ([8a6173b](https://github.com/jbcom/asset-fetch/commit/8a6173ba896e600c061f864b481a2620239ffdb1))
+* support maintained Node lines and align repository gates ([2b47f13](https://github.com/jbcom/asset-fetch/commit/2b47f13a9595f0f2c10032bb2681de4fd64a491a))
+
 ## 0.2.0 (2026-10-07)
 
 First release on npmjs, under the name `asset-fetch`, as open source under the MIT licence.
