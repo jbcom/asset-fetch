@@ -2,7 +2,8 @@
 
 ## Toolchain and validation
 
-Use Node 26 and pnpm 12, pinned in `mise.toml` and `package.json`.
+Support maintained Node.js 22, 24 and 26, with a minimum of 22.16.0 for the SQLite catalog.
+Use Node 26 and pnpm 12 as local defaults in `mise.toml`; Node support is a range in `package.json`.
 The workspace contains the published library and the private Sourcey site in `docs/`.
 Run `pnpm install --frozen-lockfile`, then `pnpm verify` for lint, Markdown lint,
 strict types, coverage, dual-format build, examples and packed-consumer validation.

@@ -10,7 +10,7 @@ npm install asset-fetch
 # or: pnpm add asset-fetch
 ```
 
-Use Node.js 24 or newer. asset-fetch ships native ESM and CommonJS entry points with format-correct
+Use Node.js 22.16.0 or newer. asset-fetch ships native ESM and CommonJS entry points with format-correct
 TypeScript declarations, and the `asset-fetch` command.
 
 ## Search

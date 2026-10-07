@@ -2,7 +2,14 @@
   "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
-    "includes": ["**", "!dist", "!coverage", "!CHANGELOG.md", "!.release-please-manifest.json"]
+    "includes": [
+      "**",
+      "!dist",
+      "!coverage",
+      "!CHANGELOG.md",
+      "!.release-please-manifest.json",
+      "!scripts/apply-branch-ruleset.mjs"
+    ]
   },
   "formatter": {
     "enabled": true,

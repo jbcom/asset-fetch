@@ -10,8 +10,8 @@ pnpm install
 pnpm verify   # format/lint, types, 100% core coverage, build, package inspection
 ```
 
-Node and pnpm versions are pinned in `package.json` under `engines` and
-`packageManager`. Use `corepack` rather than a globally installed pnpm so your
+Node.js 22, 24 and 26 are supported, starting at 22.16.0. `engines` declares that
+range; `packageManager` selects pnpm. Use `corepack` so your pnpm
 version matches CI.
 
 ## Making a change
