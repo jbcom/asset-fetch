@@ -243,7 +243,7 @@ export async function fetchPolyhavenAsset(
     const variants = files
       .filter((file) => !file.key.includes("/include/"))
       .map((file) => file.key)
-      .sort();
+      .sort((a, b) => a.localeCompare(b, "en"));
     throw new Error(
       `Poly Haven has no ${resolution}/${format} variant for ${options.assetId}. Available: ${variants.join(", ")}`
     );

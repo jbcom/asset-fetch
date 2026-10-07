@@ -308,7 +308,7 @@ export async function extractArchives(
   const extracted: string[] = [];
   const failed: string[] = [];
 
-  for (const f of readdirSync(resolvedArchivesDir).sort()) {
+  for (const f of readdirSync(resolvedArchivesDir).sort((a, b) => a.localeCompare(b, "en"))) {
     if (!ARCHIVE_RE.test(f)) continue;
     const archivePath = join(resolvedArchivesDir, f);
     const slug = slugify(f.replace(ARCHIVE_RE, "")) || "archive";

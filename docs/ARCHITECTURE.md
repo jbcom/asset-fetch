@@ -14,6 +14,24 @@ Poly Haven ───┘            │
                            └─> project-owned promotion script -> public assets
 ```
 
+## Caller-owned toolchain and compatibility checksums
+
+Archive extraction invokes fixed command names (`unzip` and `7z`); optional audio
+normalization invokes `ffmpeg`. These are caller-installed tools resolved through
+the caller's trusted `PATH`, using argument arrays without a shell. Asset content
+never chooses a command name or modifies `PATH`. Callers must keep asset and other
+untrusted directories out of `PATH`, as they would for any local CLI toolchain.
+
+The optional MD5 is a compatibility checksum supplied by itch.io for detecting
+damaged transfers and cache mismatches, not a signature or authentication check.
+It must match the service's checksum algorithm; replacing it with SHA-256 would
+break that protocol. HTTPS remains required for asset transfer. File size and
+checksum are checked on the same open descriptor.
+
+Sonar exceptions are scoped to those two rules and the three implementation files:
+S4036 for the caller-owned extraction/audio tools and S4790 for the compatibility
+checksum. Other security rules and all test coverage thresholds remain enforced.
+
 ## Module boundaries
 
 - `library.ts` reads and searches the caller's owned itch.io library.
