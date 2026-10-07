@@ -60,6 +60,36 @@ describe("readItchApiKey", () => {
     expect(readItchApiKey(dir)).toBeUndefined();
   });
 
+  test("rejects a malformed environment value instead of sending it", () => {
+    for (const bad of [
+      "short",
+      "has a space",
+      "Bearer abcdefghij",
+      "key;rm -rf",
+      "a\nb-key-value",
+    ]) {
+      process.env.ITCH_API_KEY = bad;
+      expect(readItchApiKey(dir)).toBeUndefined();
+    }
+  });
+
+  test("a malformed environment value falls through to a valid .env key", () => {
+    process.env.ITCH_API_KEY = "bad value";
+    writeFileSync(join(dir, ".env"), "ITCH_API_KEY=valid-dot-env-key\n");
+    expect(readItchApiKey(dir)).toBe("valid-dot-env-key");
+  });
+
+  test("rejects malformed .env values and keeps looking for a conforming line", () => {
+    writeFileSync(join(dir, ".env"), "ITCH_API_KEY=has a space\n");
+    expect(readItchApiKey(dir)).toBeUndefined();
+
+    writeFileSync(join(dir, ".env"), 'ITCH_API_KEY="ITCH_API_KEY=nested-key"\n');
+    expect(readItchApiKey(dir)).toBeUndefined();
+
+    writeFileSync(join(dir, ".env"), "ITCH_API_KEY=short\nITCH_API_KEY=second-line-key\n");
+    expect(readItchApiKey(dir)).toBe("second-line-key");
+  });
+
   test("returns undefined when no .env file exists", () => {
     expect(readItchApiKey(dir)).toBeUndefined();
   });

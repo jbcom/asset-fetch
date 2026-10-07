@@ -1,15 +1,20 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { sanitizeKey } from "./safety.js";
 
 /**
  * Resolve ITCH_API_KEY: process.env first, then a `.env` file in the given
  * root (a gitignored convention — `ITCH_API_KEY=<key>`).
- * Returns undefined rather than throwing so callers can print their own
- * contextual error message.
+ *
+ * Every candidate passes through {@link sanitizeKey}, the single gate between
+ * a configured value and the `Authorization` header: a value of the wrong
+ * shape is skipped, never sent. Returns undefined rather than throwing, for a
+ * missing and a malformed key alike, so callers can print their own contextual
+ * error message.
  */
 export function readItchApiKey(root: string): string | undefined {
-  const environmentValue = process.env.ITCH_API_KEY?.trim();
-  if (environmentValue) return environmentValue;
+  const fromEnvironment = sanitizeKey(process.env.ITCH_API_KEY);
+  if (fromEnvironment) return fromEnvironment;
   const envPath = join(root, ".env");
   if (!existsSync(envPath)) return undefined;
   const text = readFileSync(envPath, "utf8");
@@ -26,7 +31,8 @@ export function readItchApiKey(root: string): string | undefined {
     } else {
       value = value.replace(/\s+#.*$/, "").trim();
     }
-    if (value) return value;
+    const key = sanitizeKey(value);
+    if (key) return key;
   }
   return undefined;
 }

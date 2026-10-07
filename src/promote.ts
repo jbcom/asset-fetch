@@ -9,6 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, extname, join } from "node:path";
+import { assertWithin } from "./safety.js";
 
 export interface PromoteSlot {
   /** Destination filename stem, e.g. "ambient-pad" — becomes
@@ -106,6 +107,7 @@ export function promoteAssets(options: PromoteOptions): PromoteResult {
       const ext = (sourceExtension || ".ogg").toLowerCase();
       const destName = slot.sources.length > 1 ? `${slot.name}-${i}${ext}` : `${slot.name}${ext}`;
       const dest = join(targetDir, destName);
+      assertWithin(dest, [targetDir]);
       const destinationIdentity = destName.toLowerCase();
       const existingOwner = destinationNames.get(destinationIdentity);
       if (existingOwner) {

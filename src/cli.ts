@@ -65,7 +65,7 @@ function requireApiKey(): string {
   const key = readItchApiKey(cwd);
   if (!key) {
     fail(
-      "ITCH_API_KEY missing — set the env var or add `ITCH_API_KEY=<key>` to .env in the current directory."
+      "ITCH_API_KEY missing or malformed — set the env var or add `ITCH_API_KEY=<key>` to .env in the current directory. A key is 8 to 128 letters, digits, `.`, `_` or `-`."
     );
   }
   return key;

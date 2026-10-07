@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, renameSync, rmSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { downloadHttpsFile } from "./http.js";
 import { fileMatches, requireHttpsUrl } from "./integrity.js";
+import { assertWithin } from "./safety.js";
 
 export type PolyhavenAssetType = "hdris" | "textures" | "models";
 
@@ -257,7 +258,9 @@ export async function fetchPolyhavenAsset(
     if (destinations.has(portableIdentity))
       throw new Error(`Poly Haven variant contains duplicate path: ${relative}`);
     destinations.add(portableIdentity);
-    return { file, destination: join(directory, relative) };
+    const destination = join(directory, relative);
+    assertWithin(destination, [directory]);
+    return { file, destination };
   });
   const checked = plan.map((entry) => ({
     ...entry,

@@ -12,6 +12,7 @@ import {
 import { basename, join, resolve } from "node:path";
 import { downloadHttpsFile } from "./http.js";
 import { fileMatches, requireHttpsUrl } from "./integrity.js";
+import { assertExtractionContained, assertWithin } from "./safety.js";
 
 /** One file itch.io offers for a given game/download-key, as returned by
  * the `/api/1/key/game/<id>/uploads` endpoint. */
@@ -226,6 +227,7 @@ export async function fetchItchAssets(options: FetchAssetsOptions): Promise<Fetc
       const dest = isArchive
         ? join(archivesDir, `${directorySlug}__${safeName}`)
         : join(looseDir, directorySlug, safeName);
+      assertWithin(dest, [isArchive ? archivesDir : looseDir]);
 
       const expected = { size: upload.size, md5: upload.md5_hash };
       if (fileMatches(dest, expected)) {
@@ -311,6 +313,7 @@ export async function extractArchives(
     const archivePath = join(resolvedArchivesDir, f);
     const slug = slugify(f.replace(ARCHIVE_RE, "")) || "archive";
     const target = join(resolvedExtractedDir, slug);
+    assertWithin(target, [resolvedExtractedDir]);
     const markerPath = join(target, ".asset-fetch-source.json");
     const sourceStat = statSync(archivePath);
     let markerMatches = false;
@@ -363,6 +366,11 @@ export async function extractArchives(
         });
         if (result.status !== 0) throw new Error(`7z failed for ${f}`);
       }
+      // Entry names were checked lexically above, but a symlink member passes
+      // that check and can point anywhere. Audit what the extractor really
+      // wrote, and discard the whole extraction (the catch below) if any entry
+      // resolves outside the staging directory.
+      assertExtractionContained(staging);
       writeFileSync(
         join(staging, ".asset-fetch-source.json"),
         `${JSON.stringify({ size: sourceStat.size, mtimeMs: sourceStat.mtimeMs })}\n`

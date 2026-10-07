@@ -50,6 +50,12 @@ export {
   writeAssetManifest,
 } from "./promote.js";
 export {
+  assertExtractionContained,
+  assertWithin,
+  KEY_PATTERN,
+  sanitizeKey,
+} from "./safety.js";
+export {
   type AssetKind,
   type AssetSource,
   type FindAssetsOptions,
