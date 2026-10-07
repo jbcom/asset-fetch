@@ -1,5 +1,15 @@
 export { readItchApiKey } from "./apiKey.js";
 export {
+  type AvailableCatalogResult,
+  type CatalogAsset,
+  type CatalogUnavailableReason,
+  resolveAssetsRoot,
+  type SearchCatalogOptions,
+  type SearchCatalogResult,
+  searchCatalog,
+  type UnavailableCatalogResult,
+} from "./catalog.js";
+export {
   extractArchives,
   type FetchAssetsOptions,
   type FetchAssetsResult,
@@ -19,15 +29,6 @@ export {
   sanitizeItchUrl,
   searchLibrary,
 } from "./library.js";
-export {
-  type AvailableNasCatalogResult,
-  type NasAsset,
-  type NasUnavailableReason,
-  type SearchNasCatalogOptions,
-  type SearchNasCatalogResult,
-  searchNasCatalog,
-  type UnavailableNasCatalogResult,
-} from "./nas.js";
 export {
   type FetchPolyhavenAssetOptions,
   type FetchPolyhavenAssetResult,

@@ -1,17 +1,17 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { searchNasCatalog } from "../src/nas.js";
+import { resolveAssetsRoot, searchCatalog } from "../src/catalog.js";
 
-describe("searchNasCatalog", () => {
+describe("searchCatalog", () => {
   let root: string;
   let assetsRoot: string;
   let databasePath: string;
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), "asset-fetch-nas-"));
+    root = mkdtempSync(join(tmpdir(), "asset-fetch-catalog-"));
     assetsRoot = join(root, "assets");
     databasePath = join(root, "catalog.db");
     mkdirSync(assetsRoot);
@@ -65,7 +65,7 @@ describe("searchNasCatalog", () => {
   }
 
   test("fails soft when the assets root is unavailable", () => {
-    const result = searchNasCatalog("tree", {
+    const result = searchCatalog("tree", {
       databasePath,
       assetsRoot: join(root, "missing-assets"),
     });
@@ -73,18 +73,18 @@ describe("searchNasCatalog", () => {
       available: false,
       unavailableReason: "assets-root-missing",
       assets: [],
+      message: expect.stringContaining("not mounted"),
     });
-    expect(result.message).toContain("not mounted");
   });
 
   test("fails soft when the catalog is missing or unreadable", () => {
-    expect(searchNasCatalog("", { databasePath, assetsRoot })).toMatchObject({
+    expect(searchCatalog("", { databasePath, assetsRoot })).toMatchObject({
       available: false,
       unavailableReason: "catalog-missing",
     });
 
     writeFileSync(databasePath, "not sqlite");
-    expect(searchNasCatalog("", { databasePath, assetsRoot })).toMatchObject({
+    expect(searchCatalog("", { databasePath, assetsRoot })).toMatchObject({
       available: false,
       unavailableReason: "catalog-error",
     });
@@ -92,7 +92,7 @@ describe("searchNasCatalog", () => {
 
   test("searches FTS safely and maps catalog rows into the public type", () => {
     createCatalog();
-    const result = searchNasCatalog('pine "tree"', {
+    const result = searchCatalog('pine "tree"', {
       databasePath,
       assetsRoot,
       style: "3DLowPoly",
@@ -129,7 +129,7 @@ describe("searchNasCatalog", () => {
 
   test("supports filter-only search and null/default fields", () => {
     createCatalog();
-    const result = searchNasCatalog("", {
+    const result = searchCatalog("", {
       databasePath,
       assetsRoot,
       hasArmature: true,
@@ -147,36 +147,64 @@ describe("searchNasCatalog", () => {
     const database = new DatabaseSync(databasePath);
     database.exec("UPDATE assets SET extensions = NULL, tags = NULL WHERE id = 2");
     database.close();
-    expect(searchNasCatalog("", { databasePath, assetsRoot }).assets[0]).toMatchObject({
+    expect(searchCatalog("", { databasePath, assetsRoot }).assets[0]).toMatchObject({
       name: "Knight",
       extensions: [],
       tags: [],
     });
   });
 
-  test("resolves explicit environment overrides and compatibility/default fallbacks", () => {
+  test("resolves explicit environment overrides and the compatibility fallback", () => {
     createCatalog();
     vi.stubEnv("ASSET_FETCH_CATALOG_DB", databasePath);
     vi.stubEnv("ASSET_FETCH_ASSETS_ROOT", assetsRoot);
-    expect(searchNasCatalog("pine", { maxResults: 1 }).assets).toHaveLength(1);
+    expect(searchCatalog("pine", { maxResults: 1 }).assets).toHaveLength(1);
 
-    delete process.env.ASSET_FETCH_CATALOG_DB;
+    vi.stubEnv("ASSET_FETCH_CATALOG_DB", undefined);
     vi.stubEnv("CATALOG_DB", databasePath);
     expect(
-      searchNasCatalog("pine", { databasePath: undefined, assetsRoot, maxResults: 1 }).available
+      searchCatalog("pine", { databasePath: undefined, assetsRoot, maxResults: 1 }).available
     ).toBe(true);
+  });
 
-    vi.unstubAllEnvs();
-    const defaults = searchNasCatalog("", {
-      assetsRoot: join(root, "missing-default-probe"),
+  test("defaults the catalog to the path game-asset-mcp writes", () => {
+    vi.stubEnv("ASSET_FETCH_CATALOG_DB", undefined);
+    vi.stubEnv("CATALOG_DB", undefined);
+    const result = searchCatalog("", { assetsRoot });
+    expect(result.databasePath).toBe(
+      join(homedir(), ".local", "share", "game-asset-mcp", "catalog.db")
+    );
+  });
+
+  test("an explicit root wins over the environment", () => {
+    createCatalog();
+    vi.stubEnv("ASSET_FETCH_ASSETS_ROOT", join(root, "elsewhere"));
+    expect(searchCatalog("pine", { databasePath, assetsRoot }).available).toBe(true);
+  });
+
+  describe("asset root is required", () => {
+    test("throws a clear error when neither an option nor the environment sets it", () => {
+      vi.stubEnv("ASSET_FETCH_ASSETS_ROOT", undefined);
+      expect(() => searchCatalog("tree", { databasePath })).toThrow(
+        /ASSET_FETCH_ASSETS_ROOT.*assetsRoot|assetsRoot.*ASSET_FETCH_ASSETS_ROOT/
+      );
     });
-    expect(defaults.databasePath).toContain("assets-mcp");
-    expect(defaults.available).toBe(false);
-    expect(searchNasCatalog("", { databasePath }).available).toBeTypeOf("boolean");
+
+    test("treats a blank environment value as unset", () => {
+      vi.stubEnv("ASSET_FETCH_ASSETS_ROOT", "   ");
+      expect(() => searchCatalog("tree", { databasePath })).toThrow(/not configured/);
+      expect(() => resolveAssetsRoot("")).toThrow(/not configured/);
+    });
+
+    test("resolves an option or the environment to an absolute path", () => {
+      expect(resolveAssetsRoot(assetsRoot)).toBe(resolve(assetsRoot));
+      vi.stubEnv("ASSET_FETCH_ASSETS_ROOT", assetsRoot);
+      expect(resolveAssetsRoot()).toBe(resolve(assetsRoot));
+    });
   });
 
   test.each([0, 101, 1.5])("rejects invalid maxResults values (%s)", (maxResults) => {
-    expect(() => searchNasCatalog("", { databasePath, assetsRoot, maxResults })).toThrow(
+    expect(() => searchCatalog("", { databasePath, assetsRoot, maxResults })).toThrow(
       /between 1 and 100/
     );
   });

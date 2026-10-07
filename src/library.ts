@@ -35,10 +35,8 @@ function retryAfterMilliseconds(value: string | null, now = Date.now()): number 
 }
 
 /**
- * itch.io's API rate-limits paginated owned-keys requests (a full
- * library walk hit a real 429 during development of this package — the
- * prior per-repo scripts never handled this, they just crashed).
- * Retries on 429 with the response's Retry-After header when present,
+ * itch.io's API rate-limits paginated owned-keys requests, so a full library
+ * walk can hit a 429. Retries on 429 with the response's Retry-After header when present,
  * otherwise exponential backoff (1s, 2s, 4s, 8s). Non-429 responses pass
  * through untouched — the caller's existing `!res.ok` handling covers them.
  */
@@ -81,8 +79,7 @@ const URL_SUSPICIOUS_RE = /itch\.io\/https?[a-z0-9-]*itchio/i;
 /**
  * Some pack authors paste a URL into the URL field itself, producing
  * malformed entries like `https://author.itch.io/httpsauthoritchio`.
- * Strip those rather than carry dead links into a generated inventory
- * (bone-buster's fix, generalized).
+ * Strip those rather than carry dead links into a generated inventory.
  */
 export function sanitizeItchUrl(url: unknown): string {
   if (typeof url !== "string" || url.length === 0) return "";

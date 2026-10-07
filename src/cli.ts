@@ -22,7 +22,7 @@ if (command === "itch") {
 const cwd = process.cwd();
 const dry = rest.includes("--dry");
 const BUCKETS = new Set<LibraryBucket>(["audio", "pixel-2d", "3d-psx", "tool", "other"]);
-const SOURCES = new Set<AssetSource>(["itch", "nas", "polyhaven"]);
+const SOURCES = new Set<AssetSource>(["itch", "catalog", "polyhaven"]);
 const KINDS = new Set<AssetKind>(["audio", "2d", "3d", "hdri", "texture", "tool", "other"]);
 
 function fail(message: string): never {
@@ -34,7 +34,7 @@ function usage(): string {
   return [
     "usage: asset-fetch <command>",
     "",
-    "  find <query> [--source=itch|nas|polyhaven|all] [--type=<kind>] [--limit=20] [--json]",
+    "  find <query> [--source=itch|catalog|polyhaven|all] [--type=<kind>] [--limit=20] [--json]",
     "                              search available asset backends and merge results",
     "  polyhaven fetch <id> [--resolution=1k] [--format=gltf] [--output=<dir>]",
     "                              download and verify one Poly Haven asset variant",
@@ -118,7 +118,7 @@ async function main(): Promise<void> {
       );
       if (unknownFlag) fail(`unknown find option: ${unknownFlag}`);
       const query = rest.find((arg) => !arg.startsWith("--"));
-      if (!query) fail("usage: asset-fetch find <query> [--source=itch|nas|polyhaven|all]");
+      if (!query) fail("usage: asset-fetch find <query> [--source=itch|catalog|polyhaven|all]");
       const sourceValue =
         rest.find((arg) => arg.startsWith("--source="))?.slice("--source=".length) ?? "all";
       if (sourceValue !== "all" && !SOURCES.has(sourceValue as AssetSource)) {

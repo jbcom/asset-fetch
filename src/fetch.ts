@@ -135,11 +135,9 @@ async function defaultApiGet(
 const API_MAX_RETRIES = 3;
 
 /**
- * A transient network failure on itch.io's API is common enough in practice — confirmed while
- * building this package: a batch download died on the second pack from a
- * one-off network blip that succeeded on manual retry seconds later. Wrap
- * every apiGet call with a short retry instead of letting one flaky
- * request abort an entire multi-pack batch; callers that want the
+ * A transient network failure on itch.io's API is common enough in practice
+ * that one blip should not abort a multi-pack batch. Wrap every apiGet call
+ * with a short retry; callers that want the
  * `failed` counter (rather than a thrown error) to reflect an exhausted
  * retry should catch around fetchItchAssets as a whole — retry exhaustion
  * here still throws, matching apiGet's existing contract.
@@ -292,11 +290,13 @@ export async function fetchItchAssets(options: FetchAssetsOptions): Promise<Fetc
 
 /**
  * Extract every archive in archivesDir into extractedDir/<slug>. .zip via
- * the system `unzip`; .rar via node-unrar-js (bone-buster's pattern — the
- * only prior variant handling non-zip archives); .7z via the system `7z`
- * if present. Archive entry paths are checked before extraction. Successful
- * work is staged and then moved into place with a source marker; failed or
- * interrupted extraction therefore cannot masquerade as a valid cache entry.
+ * the system `unzip`; .rar via node-unrar-js; .7z via the system `7z` if
+ * present. Archive entry names are checked before extraction, and the
+ * extracted tree is audited afterwards ({@link assertExtractionContained}), so
+ * an archive whose symlink member points outside its directory is rejected as
+ * failed. Successful work is staged and then moved into place with a source
+ * marker; failed or interrupted extraction therefore cannot masquerade as a
+ * valid cache entry, and never replaces an earlier good one.
  */
 export async function extractArchives(
   archivesDir: string,

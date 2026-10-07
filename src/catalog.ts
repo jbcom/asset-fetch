@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-export interface NasAsset {
+export interface CatalogAsset {
   path: string;
   name: string;
   style: string | null;
@@ -24,7 +24,7 @@ export interface NasAsset {
   tags: string[];
 }
 
-export interface SearchNasCatalogOptions {
+export interface SearchCatalogOptions {
   databasePath?: string;
   assetsRoot?: string;
   style?: string;
@@ -34,28 +34,47 @@ export interface SearchNasCatalogOptions {
   maxResults?: number;
 }
 
-export type NasUnavailableReason = "assets-root-missing" | "catalog-missing" | "catalog-error";
+export type CatalogUnavailableReason = "assets-root-missing" | "catalog-missing" | "catalog-error";
 
-interface SearchNasCatalogBase {
+interface SearchCatalogBase {
   databasePath: string;
 }
 
-export interface AvailableNasCatalogResult extends SearchNasCatalogBase {
+export interface AvailableCatalogResult extends SearchCatalogBase {
   available: true;
-  assets: NasAsset[];
+  assets: CatalogAsset[];
 }
 
-export interface UnavailableNasCatalogResult extends SearchNasCatalogBase {
+export interface UnavailableCatalogResult extends SearchCatalogBase {
   available: false;
   assets: [];
-  unavailableReason: NasUnavailableReason;
+  unavailableReason: CatalogUnavailableReason;
   message: string;
 }
 
-export type SearchNasCatalogResult = AvailableNasCatalogResult | UnavailableNasCatalogResult;
+export type SearchCatalogResult = AvailableCatalogResult | UnavailableCatalogResult;
 
-const DEFAULT_DATABASE_PATH = join(homedir(), ".local", "share", "assets-mcp", "catalog.db");
-const DEFAULT_ASSETS_ROOT = "/path/to/assets";
+// The catalog is written by game-asset-mcp, which keeps it at this fixed
+// path under the user's home directory (it does not consult XDG_DATA_HOME),
+// so this reads the same file that tool writes when nothing is configured.
+const DEFAULT_DATABASE_PATH = join(homedir(), ".local", "share", "game-asset-mcp", "catalog.db");
+
+/**
+ * Resolve the directory the catalog indexes: the explicit option, else
+ * `ASSET_FETCH_ASSETS_ROOT`. There is deliberately no default, because any
+ * default would name a path that exists on only one machine.
+ *
+ * @throws when neither is set (a blank value counts as unset).
+ */
+export function resolveAssetsRoot(explicit?: string): string {
+  const configured = explicit?.trim() || process.env.ASSET_FETCH_ASSETS_ROOT?.trim();
+  if (!configured) {
+    throw new Error(
+      "Asset root is not configured: pass the assetsRoot option or set ASSET_FETCH_ASSETS_ROOT to the directory the catalog indexes"
+    );
+  }
+  return resolve(configured);
+}
 
 function ftsQuery(query: string): string {
   return query
@@ -80,7 +99,7 @@ function stringArray(value: unknown, separator: RegExp): string[] {
     .filter(Boolean);
 }
 
-function mapNasAsset(value: unknown): NasAsset {
+function mapCatalogAsset(value: unknown): CatalogAsset {
   const row = value as Record<string, unknown>;
   const nullableString = (key: string): string | null =>
     typeof row[key] === "string" ? row[key] : null;
@@ -109,15 +128,13 @@ function mapNasAsset(value: unknown): NasAsset {
 }
 
 /**
- * Search the read-only SQLite catalog produced by assets-mcp. Missing mounts
- * and catalogs are normal environmental states, so they return an empty,
+ * Search the read-only SQLite catalog produced by game-asset-mcp. A missing
+ * mount or catalog is a normal environmental state, so it returns an empty,
  * structured result instead of throwing. Invalid caller options remain
- * programmer errors and do throw.
+ * programmer errors and do throw, and so does an asset root that was never
+ * configured (see {@link resolveAssetsRoot}).
  */
-export function searchNasCatalog(
-  query = "",
-  options: SearchNasCatalogOptions = {}
-): SearchNasCatalogResult {
+export function searchCatalog(query = "", options: SearchCatalogOptions = {}): SearchCatalogResult {
   const maxResults = options.maxResults ?? 20;
   if (!Number.isSafeInteger(maxResults) || maxResults < 1 || maxResults > 100) {
     throw new Error("maxResults must be an integer between 1 and 100");
@@ -129,9 +146,7 @@ export function searchNasCatalog(
       process.env.CATALOG_DB ??
       DEFAULT_DATABASE_PATH
   );
-  const assetsRoot = resolve(
-    options.assetsRoot ?? process.env.ASSET_FETCH_ASSETS_ROOT ?? DEFAULT_ASSETS_ROOT
-  );
+  const assetsRoot = resolveAssetsRoot(options.assetsRoot);
   if (!existsSync(assetsRoot)) {
     return {
       assets: [],
@@ -187,7 +202,7 @@ export function searchNasCatalog(
     sql += " LIMIT ?";
     parameters.push(maxResults);
     const rows = database.prepare(sql).all(...parameters);
-    return { assets: rows.map(mapNasAsset), databasePath, available: true };
+    return { assets: rows.map(mapCatalogAsset), databasePath, available: true };
   } catch (error) {
     return {
       assets: [],

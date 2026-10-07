@@ -135,18 +135,31 @@ describe("findAssets", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  test("reports a missing NAS mount without failing other sources", async () => {
+  test("reports a missing asset root without failing other sources", async () => {
     const result = await findAssets("forest", {
-      sources: ["itch", "nas"],
+      sources: ["itch", "catalog"],
       itchLibrary,
-      nas: { assetsRoot: "/definitely/not/mounted", databasePath: "/missing/catalog.db" },
+      catalog: { assetsRoot: "/definitely/not/mounted", databasePath: "/missing/catalog.db" },
     });
     expect(result.results).toHaveLength(2);
-    expect(result.warnings[0]).toContain("nas: Asset root is not mounted");
+    expect(result.warnings[0]).toContain("catalog: Asset root is not mounted");
   });
 
-  test("maps available NAS rows and applies unified kind filtering", async () => {
-    const root = mkdtempSync(join(tmpdir(), "asset-fetch-unified-nas-"));
+  test("reports an unconfigured asset root as a warning, not a failure", async () => {
+    vi.stubEnv("ASSET_FETCH_ASSETS_ROOT", undefined);
+    try {
+      const result = await findAssets("forest", { sources: ["itch", "catalog"], itchLibrary });
+      expect(result.results).toHaveLength(2);
+      expect(result.warnings).toHaveLength(1);
+      expect(result.warnings[0]).toMatch(/^catalog: Asset root is not configured/);
+      expect(result.warnings[0]).toContain("ASSET_FETCH_ASSETS_ROOT");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  test("maps available catalog rows and applies unified kind filtering", async () => {
+    const root = mkdtempSync(join(tmpdir(), "asset-fetch-unified-catalog-"));
     const databasePath = join(root, "catalog.db");
     try {
       const database = new DatabaseSync(databasePath);
@@ -170,12 +183,12 @@ describe("findAssets", () => {
       database.close();
 
       const result = await findAssets("pine", {
-        sources: ["nas"],
-        nas: { databasePath, assetsRoot: root },
+        sources: ["catalog"],
+        catalog: { databasePath, assetsRoot: root },
       });
       expect(result.results).toEqual([
         {
-          source: "nas",
+          source: "catalog",
           id: "/assets/tree.glb",
           name: "Pine Tree",
           description: "Low Poly · Nature · Forest",
@@ -190,17 +203,17 @@ describe("findAssets", () => {
       expect(
         (
           await findAssets("pine", {
-            sources: ["nas"],
-            nas: { databasePath, assetsRoot: root },
+            sources: ["catalog"],
+            catalog: { databasePath, assetsRoot: root },
           })
         ).results[0]?.previewUrl
       ).toBeUndefined();
       expect(
         (
           await findAssets("pine", {
-            sources: ["nas"],
+            sources: ["catalog"],
             kind: "audio",
-            nas: { databasePath, assetsRoot: root },
+            catalog: { databasePath, assetsRoot: root },
           })
         ).results
       ).toEqual([]);
@@ -258,7 +271,7 @@ describe("findAssets", () => {
     const result = await findAssets("nothing", {
       kind: "audio",
       itchLibrary: [],
-      nas: { assetsRoot: "/definitely/not/mounted" },
+      catalog: { assetsRoot: "/definitely/not/mounted" },
     });
     expect(result.results).toEqual([]);
     expect(result.warnings).toEqual([]);
@@ -266,6 +279,6 @@ describe("findAssets", () => {
 
   test("validates limits and duplicate source selections", async () => {
     await expect(findAssets("", { maxResults: 0 })).rejects.toThrow(/between 1 and 100/);
-    await expect(findAssets("", { sources: ["nas", "nas"] })).rejects.toThrow(/duplicates/);
+    await expect(findAssets("", { sources: ["catalog", "catalog"] })).rejects.toThrow(/duplicates/);
   });
 });

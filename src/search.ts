@@ -1,12 +1,12 @@
+import { resolveAssetsRoot, type SearchCatalogOptions, searchCatalog } from "./catalog.js";
 import { classifyPack, type OwnedPack, searchLibrary } from "./library.js";
-import { type SearchNasCatalogOptions, searchNasCatalog } from "./nas.js";
 import {
   type PolyhavenAssetType,
   type SearchPolyhavenOptions,
   searchPolyhaven,
 } from "./polyhaven.js";
 
-export type AssetSource = "itch" | "nas" | "polyhaven";
+export type AssetSource = "itch" | "catalog" | "polyhaven";
 export type AssetKind = "audio" | "2d" | "3d" | "hdri" | "texture" | "tool" | "other";
 
 export interface UnifiedAssetResult {
@@ -25,7 +25,7 @@ export interface FindAssetsOptions {
   kind?: AssetKind;
   maxResults?: number;
   itchLibrary?: OwnedPack[];
-  nas?: SearchNasCatalogOptions;
+  catalog?: SearchCatalogOptions;
   polyhaven?: SearchPolyhavenOptions;
 }
 
@@ -75,7 +75,7 @@ export async function findAssets(
   options: FindAssetsOptions = {}
 ): Promise<FindAssetsResult> {
   const maxResults = limitValue(options.maxResults);
-  const sources = options.sources ?? ["itch", "nas", "polyhaven"];
+  const sources = options.sources ?? ["itch", "catalog", "polyhaven"];
   if (new Set(sources).size !== sources.length)
     throw new Error("sources must not contain duplicates");
   const warnings: string[] = [];
@@ -103,14 +103,24 @@ export async function findAssets(
     }
   }
 
-  if (sources.includes("nas") && (options.kind === undefined || options.kind === "3d")) {
-    const nas = searchNasCatalog(query, { ...options.nas, maxResults });
-    if (!nas.available) {
-      warnings.push(`nas: ${nas.message}`);
+  if (sources.includes("catalog") && (options.kind === undefined || options.kind === "3d")) {
+    // An unconfigured asset root is a missing backend like a missing itch
+    // cache: report it and keep the other sources' results.
+    let assetsRoot: string | undefined;
+    try {
+      assetsRoot = resolveAssetsRoot(options.catalog?.assetsRoot);
+    } catch (error) {
+      warnings.push(`catalog: ${(error as Error).message}`);
+    }
+    const catalog = assetsRoot
+      ? searchCatalog(query, { ...options.catalog, assetsRoot, maxResults })
+      : undefined;
+    if (catalog && !catalog.available) {
+      warnings.push(`catalog: ${catalog.message}`);
     } else {
-      for (const asset of nas.assets) {
+      for (const asset of catalog?.assets ?? []) {
         const result: UnifiedAssetResult = {
-          source: "nas",
+          source: "catalog",
           id: asset.path,
           name: asset.name,
           description: [asset.style, asset.category, asset.pack].filter(Boolean).join(" · "),
