@@ -135,9 +135,13 @@ try {
   );
   assert.equal(esm, cjs, "installed ESM and CommonJS exports disagree");
   const help = execFileSync(
-    process.execPath,
-    [path.join(consumer, "node_modules/asset-fetch/dist/cli.js"), "--help"],
-    { cwd: consumer, env, encoding: "utf8" }
+    path.join(
+      consumer,
+      "node_modules/.bin",
+      process.platform === "win32" ? "asset-fetch.cmd" : "asset-fetch"
+    ),
+    ["--help"],
+    { cwd: consumer, env, encoding: "utf8", shell: process.platform === "win32" }
   );
   assert.match(help, /asset-fetch/);
   console.log(
