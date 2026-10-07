@@ -1,0 +1,16 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "asset-fetch",
+  "description": "Typed asset discovery, verified downloads, safe extraction and curated promotion from itch.io, Poly Haven and a local SQLite catalog.",
+  "branch": "main",
+  "folders": ["docs", "src", "examples"],
+  "excludeFolders": ["node_modules", "dist", "coverage", "docs/dist", "docs/node_modules"],
+  "excludeFiles": ["CHANGELOG.md"],
+  "rules": [
+    "Require an explicit asset root or ASSET_FETCH_ASSETS_ROOT for catalog searches.",
+    "Validate lexical containment and existing symlink ancestors before writes.",
+    "Audit extracted trees before committing them and reject dangling or escaping links.",
+    "Promotion is dry-run unless apply is explicitly true.",
+    "Keep ESM and CommonJS exports and declarations equivalent."
+  ]
+}

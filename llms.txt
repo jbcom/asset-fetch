@@ -1,0 +1,14 @@
+# asset-fetch
+
+> Typed CLI and library for finding, verifying, extracting and curating game assets
+> from itch.io, Poly Haven and a local SQLite catalog. ESM and CommonJS, Node 24 or newer.
+
+## Documentation
+
+- [Documentation site](https://jbcom.github.io/asset-fetch/): browsable guides and reference.
+- [README](https://github.com/jbcom/asset-fetch/blob/main/README.md): installation and quick start.
+- [API](https://github.com/jbcom/asset-fetch/blob/main/docs/API.md): public exports and options.
+- [Architecture](https://github.com/jbcom/asset-fetch/blob/main/docs/ARCHITECTURE.md): module boundaries and safety invariants.
+- [Troubleshooting](https://github.com/jbcom/asset-fetch/blob/main/docs/TROUBLESHOOTING.md): diagnostics and recovery.
+- [Agent notes](https://github.com/jbcom/asset-fetch/blob/main/AGENTS.md): toolchain and development invariants.
+- [Contributing](https://github.com/jbcom/asset-fetch/blob/main/CONTRIBUTING.md): validation and commit conventions.

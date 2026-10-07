@@ -1,0 +1,9 @@
+:root {
+  --sourcey-primary: #245a75;
+  --sourcey-primary-light: #438cad;
+  --sourcey-primary-dark: #123449;
+}
+
+header img {
+  border-radius: 0.35rem;
+}

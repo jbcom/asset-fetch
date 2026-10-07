@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "e81e4b2c881305f536cb9d353c466ce1cac33933",
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "asset-fetch",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": true,
+      "include-component-in-tag": false
+    }
+  }
+}
