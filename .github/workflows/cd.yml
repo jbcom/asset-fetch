@@ -15,8 +15,13 @@ concurrency:
 
 jobs:
   deploy:
-    # Initial import: GitHub cannot disable a workflow before it exists on main.
-    if: false && github.event.workflow_run.name == 'CI' && github.event.workflow_run.conclusion == 'success'
+    if: >-
+      vars.RELEASE_AUTOMATION_ENABLED == 'true' &&
+      github.repository_owner == 'jbcom' &&
+      github.event.workflow_run.name == 'CI' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -44,7 +49,13 @@ jobs:
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
   publish:
-    if: false && github.event.workflow_run.name == 'Release' && github.event.workflow_run.conclusion == 'success'
+    if: >-
+      vars.RELEASE_AUTOMATION_ENABLED == 'true' &&
+      github.repository_owner == 'jbcom' &&
+      github.event.workflow_run.name == 'Release' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-24.04
     permissions:
       contents: read

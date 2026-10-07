@@ -14,8 +14,10 @@ concurrency:
 
 jobs:
   release-please:
-    # Initial import: stay inert until the owner authorizes the first release.
-    if: ${{ false }}
+    # Releases remain explicitly opt-in after the owner-authorized first
+    # publication. The branch and owner checks keep workflow_dispatch from
+    # making a release from another ref or repository context.
+    if: vars.RELEASE_AUTOMATION_ENABLED == 'true' && github.repository_owner == 'jbcom' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
