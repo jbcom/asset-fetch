@@ -194,7 +194,7 @@ export function searchCatalog(query = "", options: SearchCatalogOptions = {}): S
       parameters.push(options.hasArmature ? 1 : 0);
     }
     if (options.hasTextures !== undefined) {
-      clauses.push("a.has_embedded_textures = ?");
+      clauses.push("(COALESCE(a.textures, 0) > 0) = ?");
       parameters.push(options.hasTextures ? 1 : 0);
     }
     if (clauses.length > 0) sql += ` WHERE ${clauses.join(" AND ")}`;

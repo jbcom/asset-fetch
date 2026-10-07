@@ -67,12 +67,20 @@ extracted tree is then audited with `assertExtractionContained` before it is mov
 returns `{ extracted, failed }`, never throws for one bad archive, and never replaces an earlier good
 extraction with a failed one.
 
+Archive filenames whose slugs collide are reported as failures instead of overwriting earlier
+output. Replacement commits move the old extraction aside and restore it on failure. If the
+filesystem also refuses restoration, the old output remains in a uniquely named
+`.asset-fetch-backup-*/previous` directory under `extractedDir` for recovery.
+
 ## Local 3D catalog
 
 ### `searchCatalog(query?, options?)`
 
 Queries the read-only SQLite catalog written by game-asset-mcp, using full-text search plus optional
 `style`, `category`, `hasArmature` and `hasTextures` filters.
+
+`hasTextures` checks the texture count, including externally referenced textures;
+it is independent of whether textures are embedded in the model.
 
 | Option | Default |
 | --- | --- |
@@ -96,7 +104,7 @@ naming both when neither is set. A blank value counts as unset.
 | --- | --- |
 | `searchPolyhaven(query, { type?, maxResults?, fetchImpl? })` | Ranks public metadata for `hdris`, `textures` or `models`. |
 | `listPolyhavenFiles(assetId, { fetchImpl? })` | Flattens the files response into `PolyhavenFile` descriptors (`key`, `relativePath`, `url`, `size`, `md5`). |
-| `fetchPolyhavenAsset({ assetId, targetDir, resolution?, format?, fetchImpl?, downloadImpl? })` | Downloads one variant and its include files, verified, into `targetDir/<assetId>/`. Returns `{ directory, downloaded, skipped }`. |
+| `fetchPolyhavenAsset({ assetId, targetDir, resolution?, format?, fetchImpl?, downloadImpl? })` | Downloads every file at the requested format/resolution, including all texture maps and required includes, verified, into `targetDir/<assetId>/`. Returns `{ directory, downloaded, skipped }`. |
 
 Only HTTPS URLs on Poly Haven's download hosts are accepted, and redirects are pinned to the same
 allowlist. Resolution, format and asset id are validated before any request is made.

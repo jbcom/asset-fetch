@@ -24,6 +24,18 @@ let unrarHandler:
   | ((options: { filepath: string; targetPath: string }) => Promise<unknown>)
   | undefined;
 
+let beforeRename: ((from: string, to: string) => void) | undefined;
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return {
+    ...actual,
+    renameSync: (from: string, to: string) => {
+      beforeRename?.(from, to);
+      actual.renameSync(from, to);
+    },
+  };
+});
+
 vi.mock("node:child_process", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:child_process")>();
   return {
@@ -59,6 +71,7 @@ function jsonResponse(value: unknown): Response {
 const { extractArchives, fetchItchAssets, slugify } = await import("../src/fetch.js");
 
 beforeEach(() => {
+  beforeRename = undefined;
   spawnSyncCalls.length = 0;
   spawnSyncHandler = () => ({ status: 0 });
   unrarHandler = undefined;
@@ -650,6 +663,44 @@ describe("extractArchives", () => {
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
   });
+
+  test.each(["success", "backup-failure", "commit-failure", "restore-failure"])(
+    "preserves recoverable previous output during replacement: %s",
+    async (failure) => {
+      writeFileSync(join(archivesDir, "updated.zip"), "fake zip bytes");
+      const target = join(extractedDir, "updated");
+      mkdirSync(target, { recursive: true });
+      writeFileSync(join(target, "original.txt"), "original");
+      beforeRename = (from, to) => {
+        if (failure === "backup-failure" && from === target) throw new Error("backup blocked");
+        if (failure !== "success" && to === target && !from.endsWith("previous"))
+          throw new Error("commit blocked");
+        if (failure === "restore-failure" && from.endsWith("previous"))
+          throw new Error("restore blocked");
+      };
+      useSpawnSync(() => ({ status: 0 }));
+      const result = await extractArchives(archivesDir, extractedDir);
+      if (failure === "success") {
+        expect(result).toEqual({ extracted: ["updated"], failed: [] });
+        expect(existsSync(join(target, "original.txt"))).toBe(false);
+        expect(readdirSync(extractedDir)).toEqual(["updated"]);
+      } else {
+        expect(result).toEqual({ extracted: [], failed: ["updated.zip"] });
+        if (failure === "restore-failure") {
+          const backup = readdirSync(extractedDir).find((name) =>
+            name.startsWith(".asset-fetch-backup-")
+          );
+          expect(backup).toBeDefined();
+          expect(
+            readFileSync(join(extractedDir, backup ?? "", "previous", "original.txt"), "utf8")
+          ).toBe("original");
+        } else {
+          expect(readFileSync(join(target, "original.txt"), "utf8")).toBe("original");
+          expect(readdirSync(extractedDir)).toEqual(["updated"]);
+        }
+      }
+    }
+  );
 
   test("extracts a .zip archive via the system unzip", async () => {
     writeFileSync(join(archivesDir, "my-pack.zip"), "fake zip bytes");

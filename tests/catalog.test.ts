@@ -154,6 +154,23 @@ describe("searchCatalog", () => {
     });
   });
 
+  test("texture filtering includes external textures independently of embedding", () => {
+    createCatalog();
+    const database = new DatabaseSync(databasePath);
+    database.exec("UPDATE assets SET has_embedded_textures = 0 WHERE id = 1");
+    database.close();
+    expect(
+      searchCatalog("", { databasePath, assetsRoot, hasTextures: true }).assets.map(
+        (asset) => asset.name
+      )
+    ).toEqual(["Pine Tree"]);
+    expect(
+      searchCatalog("", { databasePath, assetsRoot, hasTextures: false }).assets.map(
+        (asset) => asset.name
+      )
+    ).toEqual(["Knight"]);
+  });
+
   test("resolves explicit environment overrides and the compatibility fallback", () => {
     createCatalog();
     vi.stubEnv("ASSET_FETCH_CATALOG_DB", databasePath);

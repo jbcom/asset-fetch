@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -9,7 +10,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { basename, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { downloadHttpsFile } from "./http.js";
 import { fileMatches, requireHttpsUrl } from "./integrity.js";
 import { assertExtractionContained, assertWithin } from "./safety.js";
@@ -288,15 +289,36 @@ export async function fetchItchAssets(options: FetchAssetsOptions): Promise<Fetc
   return { downloaded, skipped, failed, archives };
 }
 
+/** Swap staged output into place while preserving a recoverable previous extraction. */
+function commitExtraction(staging: string, target: string): void {
+  if (!existsSync(target)) {
+    renameSync(staging, target);
+    return;
+  }
+  const backup = mkdtempSync(join(dirname(target), ".asset-fetch-backup-"));
+  const previous = join(backup, "previous");
+  try {
+    renameSync(target, previous);
+  } catch (error) {
+    rmSync(backup, { recursive: true, force: true });
+    throw error;
+  }
+  try {
+    renameSync(staging, target);
+  } catch (error) {
+    // If restoration itself fails, leave the backup intact for recovery.
+    renameSync(previous, target);
+    rmSync(backup, { recursive: true, force: true });
+    throw error;
+  }
+  rmSync(backup, { recursive: true, force: true });
+}
+
 /**
- * Extract every archive in archivesDir into extractedDir/<slug>. .zip via
- * the system `unzip`; .rar via node-unrar-js; .7z via the system `7z` if
- * present. Archive entry names are checked before extraction, and the
- * extracted tree is audited afterwards ({@link assertExtractionContained}), so
- * an archive whose symlink member points outside its directory is rejected as
- * failed. Successful work is staged and then moved into place with a source
- * marker; failed or interrupted extraction therefore cannot masquerade as a
- * valid cache entry, and never replaces an earlier good one.
+ * Extract zip, rar and 7z archives into per-slug directories. Audit member names
+ * and extracted trees before committing, reject slug collisions and preserve
+ * previous output if committing the replacement fails. A failed restoration
+ * leaves the previous output in a uniquely named backup for manual recovery.
  */
 export async function extractArchives(
   archivesDir: string,
@@ -381,8 +403,7 @@ export async function extractArchives(
         join(staging, ".asset-fetch-source.json"),
         `${JSON.stringify({ size: sourceStat.size, mtimeMs: sourceStat.mtimeMs })}\n`
       );
-      rmSync(target, { recursive: true, force: true });
-      renameSync(staging, target);
+      commitExtraction(staging, target);
       extracted.push(slug);
     } catch {
       failed.push(f);

@@ -258,6 +258,31 @@ describe("Poly Haven file discovery and fetch", () => {
     expect(second.skipped).toHaveLength(2);
   });
 
+  test("downloads every map in a selected texture resolution and format", async () => {
+    const fixture = Object.fromEntries(
+      ["diffuse", "normal", "roughness"].map((map) => [
+        map,
+        {
+          "1k": {
+            jpg: { url: `https://dl.polyhaven.org/${map}.jpg`, size: map.length, md5: md5(map) },
+          },
+        },
+      ])
+    );
+    const result = await fetchPolyhavenAsset({
+      assetId: "stone",
+      targetDir: root,
+      format: "jpg",
+      fetchImpl: (async () => jsonResponse(fixture)) as unknown as typeof fetch,
+      downloadImpl: async (url, destination) =>
+        writeFileSync(destination, new URL(url).pathname.slice(1, -4)),
+    });
+    expect(result.downloaded).toHaveLength(3);
+    for (const map of ["diffuse", "normal", "roughness"]) {
+      expect(readFileSync(join(result.directory, `${map}.jpg`), "utf8")).toBe(map);
+    }
+  });
+
   test.each(["asset", "include"])(
     "rejects an escaping %s destination symlink before downloads",
     async (kind) => {

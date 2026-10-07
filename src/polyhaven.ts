@@ -235,11 +235,11 @@ export async function fetchPolyhavenAsset(
   if (!/^[a-z0-9_-]+$/i.test(resolution)) throw new Error("resolution is invalid");
   if (!/^[a-z0-9_-]+$/i.test(format)) throw new Error("format is invalid");
   const files = await listPolyhavenFiles(options.assetId, options);
-  const main = files.find((file) => {
+  const mains = files.filter((file) => {
     const parts = file.key.split("/");
     return !parts.includes("include") && parts.at(-2) === resolution && parts.at(-1) === format;
   });
-  if (!main) {
+  if (mains.length === 0) {
     const variants = files
       .filter((file) => !file.key.includes("/include/"))
       .map((file) => file.key)
@@ -248,7 +248,10 @@ export async function fetchPolyhavenAsset(
       `Poly Haven has no ${resolution}/${format} variant for ${options.assetId}. Available: ${variants.join(", ")}`
     );
   }
-  const selected = [main, ...files.filter((file) => file.key.startsWith(`${main.key}/include/`))];
+  const selected = mains.flatMap((main) => [
+    main,
+    ...files.filter((file) => file.key.startsWith(`${main.key}/include/`)),
+  ]);
   const directory = resolve(options.targetDir, options.assetId);
   assertWithin(directory, [options.targetDir]);
   const destinations = new Set<string>();
