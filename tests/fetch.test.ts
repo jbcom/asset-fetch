@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 type SpawnSyncResult = { status: number | null; stdout?: string; stderr?: string };
@@ -432,7 +432,7 @@ describe("fetchItchAssets", () => {
       apiGetImpl: async () => ({ uploads: [{ id: 1, filename: "pack.zip", size: 1 }] }),
     });
 
-    expect(result.archives.map((path) => path.split("/").pop())).toEqual([
+    expect(result.archives.map((path) => basename(path))).toEqual([
       "same-pack-10__pack.zip",
       "same-pack-20__pack.zip",
     ]);
