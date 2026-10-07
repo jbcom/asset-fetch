@@ -2,13 +2,26 @@ import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { fileMatches, requireHttpsUrl } from "../src/integrity.js";
+
+let beforeOpen: (() => void) | undefined;
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return {
+    ...actual,
+    openSync: (path: string, flags: string) => {
+      beforeOpen?.();
+      return actual.openSync(path, flags);
+    },
+  };
+});
 
 describe("integrity helpers", () => {
   let root: string;
 
   beforeEach(() => {
+    beforeOpen = undefined;
     root = mkdtempSync(join(tmpdir(), "asset-fetch-integrity-"));
   });
 
@@ -25,6 +38,13 @@ describe("integrity helpers", () => {
     expect(fileMatches(path, { size: 5, md5: checksum.toUpperCase() })).toBe(true);
     expect(fileMatches(path, { size: 5, md5: "00000000000000000000000000000000" })).toBe(false);
     expect(fileMatches(join(root, "missing"), { size: 0 })).toBe(false);
+  });
+
+  test("checks the opened file when a path changes before opening", () => {
+    const path = join(root, "asset.bin");
+    writeFileSync(path, "asset");
+    beforeOpen = () => writeFileSync(path, "replacement");
+    expect(fileMatches(path, { size: 5 })).toBe(false);
   });
 
   test("accepts only valid HTTPS URLs", () => {
