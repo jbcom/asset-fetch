@@ -1,22 +1,25 @@
 # Changelog
 
-All notable changes are documented here. Releases follow
-[Semantic Versioning](https://semver.org/) and are generated from Conventional
-Commits by Release Please.
+## 0.2.0 (2026-10-07)
 
-## [Unreleased]
+First release on npmjs, under the name `asset-fetch`, as open source under the MIT licence.
 
-### Added
+### Features
 
-- Unified search across an owned itch.io library, the read-only assets-mcp
-  SQLite catalog, and Poly Haven.
-- Verified Poly Haven model, texture, and HDRI downloads.
-- Atomic, integrity-checked itch.io downloads and staged archive extraction.
-- Safe, idempotent audio promotion with optional ffmpeg normalization.
-- Dual ESM/CommonJS packaging, strict static analysis, and full core-library
-  coverage gates.
+* unified search across an owned itch.io library, a local SQLite 3D catalog and Poly Haven
+* verified Poly Haven model, texture and HDRI downloads
+* atomic, integrity-checked itch.io downloads and staged archive extraction
+* safe, idempotent audio promotion with optional ffmpeg normalization
+* audit every extraction for entries and symlinks that escape its directory, and check every write
+  destination with `assertWithin`
+* gate API keys with `sanitizeKey` before they reach an `Authorization` header
+* export `assertWithin`, `assertExtractionContained`, `sanitizeKey` and `KEY_PATTERN`
+* ship a CommonJS build alongside ESM, each with its own declarations
 
-### Changed
+### Changes
 
-- The package is now named `@jbdevprimary/asset-fetch` and requires Node.js 24
-  or newer.
+* the asset root for the local catalog is required (option or `ASSET_FETCH_ASSETS_ROOT`); there is no
+  machine-specific default
+* the catalog default path is the one game-asset-mcp writes, `~/.local/share/game-asset-mcp/catalog.db`
+* the `nas` source and `searchNasCatalog` are now `catalog` and `searchCatalog`
+* move to TypeScript 7, Vitest 5, Node 24 as the floor and Node 26 as the build toolchain
