@@ -29,7 +29,7 @@ npm install asset-fetch
 npx asset-fetch --help
 ```
 
-Requires Node.js 24 or newer. The package ships native ESM and CommonJS entry points with
+Requires Node.js 22.16.0 or newer. The package ships native ESM and CommonJS entry points with
 format-correct TypeScript declarations, and one runtime dependency
 ([`node-unrar-js`](https://www.npmjs.com/package/node-unrar-js)).
 
@@ -208,7 +208,9 @@ variants and writes the manifest atomically. See the runnable [examples](./examp
 
 ## Platform requirements
 
-The library and CLI support current Node.js 24 and 26 releases on Linux, macOS and Windows. Optional
+The library and CLI support maintained Node.js 22, 24 and 26 releases on Linux, macOS and Windows.
+The minimum is 22.16.0 because the shipped catalog uses the `node:sqlite` timeout option,
+even when callers use only the remote sources. CI selects maintained majors, not exact patches. Optional
 workflows need host tools:
 
 - ZIP extraction: `unzip`

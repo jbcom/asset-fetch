@@ -47,10 +47,16 @@ storage was wrong and tied the public API to a private setup. `AssetSource` is `
 is `catalog`, and the functions are `searchCatalog` and `resolveAssetsRoot`. This was done before the
 first npmjs release so no published API changes.
 
-## Toolchain: Node 26 and pnpm 12 to build, Node 24 as the floor to run
+## Toolchain: maintained Node.js 22, 24 and 26, pnpm 12
 
-`engines` is `>=24` with no ceiling and `@types/node` stays on 24. CI runs the full gate on Node 24 and
-Node 26 on Linux and on Node 26 on Windows, because the package resolves paths and spawns archive tools.
+`engines` is `>=22.16.0` with no ceiling and `@types/node` stays on 24. The shipped catalog
+uses the [`DatabaseSync` timeout option](https://nodejs.org/docs/latest-v22.x/api/sqlite.html#new-databasesyncpath-options),
+added in 22.16.0. Catalog imports are part of the root entry point, so the package-wide range
+covers this requirement even when a caller only uses remote sources. This is a lower bound,
+not an exact patch pin or a promise to support obsolete Node lines.
+CI runs the full gate on maintained Node.js 22, 24 and 26 on Linux and on Node 26 on Windows,
+because the package resolves paths and spawns archive tools. All selectors use majors;
+Node 26 is the local default. Verification also runs locally at the 22.16.0 floor.
 TypeScript is 7 (native) with `moduleResolution: bundler`; Vitest is 5.
 
 ## Initial release automation

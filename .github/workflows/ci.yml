@@ -22,10 +22,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The floor (engines.node is >=24) and the toolchain the package is
-        # built on. The package resolves filesystem paths and spawns archive
+        # Every maintained Node line. The package resolves filesystem paths and spawns archive
         # tools, so it also runs on Windows.
         include:
+          - os: ubuntu-24.04
+            node: "22"
           - os: ubuntu-24.04
             node: "24"
           - os: ubuntu-24.04
@@ -63,7 +64,7 @@ jobs:
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version-file: .nvmrc
+          node-version: "26"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm docs:check
@@ -81,7 +82,7 @@ jobs:
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version-file: .nvmrc
+          node-version: "26"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm coverage
