@@ -307,12 +307,18 @@ export async function extractArchives(
   mkdirSync(resolvedExtractedDir, { recursive: true });
   const extracted: string[] = [];
   const failed: string[] = [];
+  const claimedTargets = new Set<string>();
 
   for (const f of readdirSync(resolvedArchivesDir).sort((a, b) => a.localeCompare(b, "en"))) {
     if (!ARCHIVE_RE.test(f)) continue;
     const archivePath = join(resolvedArchivesDir, f);
     const slug = slugify(f.replace(ARCHIVE_RE, "")) || "archive";
     const target = join(resolvedExtractedDir, slug);
+    if (claimedTargets.has(target)) {
+      failed.push(f);
+      continue;
+    }
+    claimedTargets.add(target);
     assertWithin(target, [resolvedExtractedDir]);
     const markerPath = join(target, ".asset-fetch-source.json");
     const sourceStat = statSync(archivePath);

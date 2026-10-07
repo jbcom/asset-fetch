@@ -1,5 +1,14 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -247,6 +256,59 @@ describe("Poly Haven file discovery and fetch", () => {
     const second = await fetchPolyhavenAsset(options);
     expect(second.downloaded).toEqual([]);
     expect(second.skipped).toHaveLength(2);
+  });
+
+  test.each(["asset", "include"])(
+    "rejects an escaping %s destination symlink before downloads",
+    async (kind) => {
+      const outside = mkdtempSync(join(tmpdir(), "asset-fetch-outside-"));
+      const downloadImpl = vi.fn();
+      try {
+        const directory = join(root, "ceramic_vase_03");
+        if (kind === "asset") symlinkSync(outside, directory, "dir");
+        else {
+          mkdirSync(directory);
+          symlinkSync(outside, join(directory, "textures"), "dir");
+        }
+        await expect(
+          fetchPolyhavenAsset({
+            assetId: "ceramic_vase_03",
+            targetDir: root,
+            fetchImpl: (async () => jsonResponse(variantFixture())) as unknown as typeof fetch,
+            downloadImpl,
+          })
+        ).rejects.toThrow(/outside/);
+        expect(downloadImpl).not.toHaveBeenCalled();
+        expect(readdirSync(outside)).toEqual([]);
+      } finally {
+        rmSync(outside, { recursive: true, force: true });
+      }
+    }
+  );
+
+  test("rechecks destination links after downloading before committing files", async () => {
+    const outside = mkdtempSync(join(tmpdir(), "asset-fetch-outside-"));
+    const directory = join(root, "ceramic_vase_03");
+    try {
+      await expect(
+        fetchPolyhavenAsset({
+          assetId: "ceramic_vase_03",
+          targetDir: root,
+          fetchImpl: (async () => jsonResponse(variantFixture())) as unknown as typeof fetch,
+          downloadImpl: async (url, destination) => {
+            writeFileSync(destination, url.endsWith("model.gltf") ? "gltf" : "texture");
+            if (!existsSync(directory)) {
+              mkdirSync(directory);
+              symlinkSync(outside, join(directory, "textures"), "dir");
+            }
+          },
+        })
+      ).rejects.toThrow(/outside/);
+      expect(readdirSync(outside)).toEqual([]);
+      expect(existsSync(join(directory, "model.gltf"))).toBe(false);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
   });
 
   test("cleans temporary files after checksum failure", async () => {

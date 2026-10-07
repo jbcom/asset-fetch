@@ -117,7 +117,7 @@ touched. `normalize: true` runs `ffmpeg` loudness normalization and silently kee
 
 | Export | Behavior |
 | --- | --- |
-| `assertWithin(candidate, roots)` | Resolves `candidate` and returns it if it is inside any root; otherwise throws `refusing path outside the asset tree`. Segment-aware. |
+| `assertWithin(candidate, roots)` | Returns the resolved candidate only when lexical and physical containment hold in a root. Resolves existing ancestors before planning missing directories; rejects escaping or dangling symlinks. Segment-aware. |
 | `assertExtractionContained(dir)` | Throws `archive entry escapes extraction dir` for the first entry whose real path is outside `dir`, and `archive entry cannot be resolved` for a symlink with no resolvable target. Never follows a symlink. |
 | `sanitizeKey(value)` | The trimmed key if it matches `KEY_PATTERN`; otherwise `undefined`. Never throws. |
 | `KEY_PATTERN` | `/^[A-Za-z0-9._-]{8,128}$/`. |

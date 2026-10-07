@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative, resolve, sep } from "node:path";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { dirname, join, relative, resolve, sep } from "node:path";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   assertExtractionContained,
   assertWithin,
@@ -12,6 +12,18 @@ import {
 // Windows CI enables Developer Mode so real file and directory links are tested.
 const symlinks = test;
 
+let missingRootStat = false;
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return {
+    ...actual,
+    lstatSync: (path: string, options?: { throwIfNoEntry?: boolean }) => {
+      if (missingRootStat && dirname(path) === path) return undefined;
+      return actual.lstatSync(path, options);
+    },
+  };
+});
+
 let scratch: string[] = [];
 
 function tmp(): string {
@@ -21,6 +33,7 @@ function tmp(): string {
 }
 
 beforeEach(() => {
+  missingRootStat = false;
   scratch = [];
 });
 
@@ -29,6 +42,32 @@ afterEach(() => {
 });
 
 describe("assertWithin", () => {
+  test("resolves a filesystem root even if its stat lookup reports missing", () => {
+    missingRootStat = true;
+    const root = resolve(sep);
+    expect(assertWithin(root, [root])).toBe(root);
+  });
+
+  test("rejects an existing parent symlink that escapes the chosen root", () => {
+    const root = tmp();
+    const outside = tmp();
+    symlinkSync(outside, join(root, "linked"), "dir");
+    expect(() => assertWithin(join(root, "linked", "new", "file"), [root])).toThrow(/outside/);
+  });
+
+  test("rejects a dangling destination ancestor", () => {
+    const root = tmp();
+    symlinkSync(join(root, "missing"), join(root, "linked"), "dir");
+    expect(() => assertWithin(join(root, "linked", "file"), [root])).toThrow();
+  });
+
+  test("allows an existing parent symlink that stays inside the root", () => {
+    const root = tmp();
+    mkdirSync(join(root, "actual"));
+    symlinkSync(join(root, "actual"), join(root, "linked"), "dir");
+    expect(assertWithin(join(root, "linked", "new"), [root])).toBe(join(root, "linked", "new"));
+  });
+
   test("accepts a path inside a root and returns it resolved", () => {
     const root = tmp();
     expect(assertWithin(join(root, "a", "b"), [root])).toBe(resolve(root, "a", "b"));

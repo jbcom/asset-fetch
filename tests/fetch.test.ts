@@ -702,6 +702,22 @@ describe("extractArchives", () => {
     expect(result).toEqual({ extracted: ["alpha", "beta"], failed: [] });
   });
 
+  test("reports colliding archive slugs without deleting the first extraction", async () => {
+    writeFileSync(join(archivesDir, "foo bar.zip"), "fake zip bytes");
+    writeFileSync(join(archivesDir, "foo-bar.7z"), "fake 7z bytes");
+    useSpawnSync((cmd, args = []) => {
+      if (cmd === "unzip" && args.includes("-q")) {
+        writeFileSync(join(args[args.indexOf("-d") + 1] ?? "", "retained.txt"), "original");
+      }
+      return { status: 0 };
+    });
+    expect(await extractArchives(archivesDir, extractedDir)).toEqual({
+      extracted: ["foo-bar"],
+      failed: ["foo-bar.7z"],
+    });
+    expect(readFileSync(join(extractedDir, "foo-bar", "retained.txt"), "utf8")).toBe("original");
+  });
+
   test("extracts a .rar archive via node-unrar-js", async () => {
     // A syntactically-invalid rar is fine here: node-unrar-js will throw,
     // which exercises the catch-and-record-as-failed path — real behavior

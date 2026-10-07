@@ -113,6 +113,14 @@ describe("fetchOwnedLibrary", () => {
     await expect(fetchOwnedLibrary({ apiKey: "key", fetchImpl })).rejects.toThrow(/500/);
   });
 
+  test("rejects application errors instead of returning an empty library", async () => {
+    const fetchImpl = (async () =>
+      fakeResponse({ json: { errors: ["invalid credentials"] } })) as unknown as typeof fetch;
+    await expect(fetchOwnedLibrary({ apiKey: "key", fetchImpl })).rejects.toThrow(
+      /application error/
+    );
+  });
+
   test("falls back to the global fetch when no fetchImpl is injected", async () => {
     // options.fetchImpl ?? fetch — stub the global fetch itself so the
     // default-fetch branch runs without hitting the real network.

@@ -34,6 +34,12 @@ checksum. Other security rules and all test coverage thresholds remain enforced.
 
 ## Module boundaries
 
+Destination containment resolves existing path ancestors, so a pre-existing
+directory symlink cannot redirect a planned write outside the caller's root.
+Poly Haven checks the full plan again after downloads and before committing files.
+Colliding archive slugs are reported as failures; the first extraction is preserved.
+An itch.io application-error payload throws rather than becoming an empty library.
+
 - `library.ts` reads and searches the caller's owned itch.io library.
 - `fetch.ts` downloads selected packs and extracts archives.
 - `catalog.ts` opens a game-asset-mcp SQLite catalog read-only. It never ingests, modifies or renders

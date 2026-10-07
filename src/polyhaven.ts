@@ -250,6 +250,7 @@ export async function fetchPolyhavenAsset(
   }
   const selected = [main, ...files.filter((file) => file.key.startsWith(`${main.key}/include/`))];
   const directory = resolve(options.targetDir, options.assetId);
+  assertWithin(directory, [options.targetDir]);
   const destinations = new Set<string>();
   const plan = selected.map((file) => {
     const relative = safeRelativePath(file.relativePath);
@@ -285,6 +286,8 @@ export async function fetchPolyhavenAsset(
         throw new Error(`Downloaded file failed size or MD5 verification: ${file.key}`);
       }
     }
+    // Revalidate the complete plan after network waits, before committing any file.
+    for (const { destination } of pending) assertWithin(destination, [options.targetDir]);
     for (const { file, destination } of pending) {
       mkdirSync(dirname(destination), { recursive: true });
       renameSync(join(staging, safeRelativePath(file.relativePath)), destination);

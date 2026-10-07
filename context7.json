@@ -1,15 +1,16 @@
 {
   "$schema": "https://context7.com/schema/context7.json",
-  "projectTitle": "maze-core",
-  "description": "Deterministic maze generation: seeded grid mazes, geometry, curved walls, and multi-layer mazes with a solvability proof.",
+  "projectTitle": "asset-fetch",
+  "description": "Typed asset discovery, verified downloads, safe extraction and curated promotion from itch.io, Poly Haven and a local SQLite catalog.",
   "branch": "main",
   "folders": ["docs", "src", "examples"],
   "excludeFolders": ["node_modules", "dist", "coverage", "docs/dist", "docs/node_modules"],
   "excludeFiles": ["CHANGELOG.md"],
   "rules": [
-    "A maze is a pure function of its dimensions and seed; never call Math.random.",
-    "Treat any change to the order or number of random draws as breaking, because it changes every stored seed.",
-    "Use assertSolvable on layered mazes; it reports a SolvabilityReport rather than throwing.",
-    "Dimensions are forced odd so the maze has a single centre cell."
+    "Require an explicit asset root or ASSET_FETCH_ASSETS_ROOT for catalog searches.",
+    "Validate lexical containment and existing symlink ancestors before writes.",
+    "Audit extracted trees before committing them and reject dangling or escaping links.",
+    "Promotion is dry-run unless apply is explicitly true.",
+    "Keep ESM and CommonJS exports and declarations equivalent."
   ]
 }

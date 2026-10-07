@@ -121,6 +121,9 @@ export async function fetchOwnedLibrary(options: FetchLibraryOptions): Promise<O
     } catch (e) {
       throw new Error(`itch API page ${page}: non-JSON response (${(e as Error).message})`);
     }
+    if (typeof data === "object" && data !== null && "errors" in data) {
+      throw new Error(`itch API page ${page}: application error response`);
+    }
     const keys =
       typeof data === "object" &&
       data !== null &&

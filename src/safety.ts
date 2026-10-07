@@ -1,5 +1,14 @@
 import { lstatSync, readdirSync, realpathSync } from "node:fs";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+
+/** Resolve existing ancestors, including symlinks, before planning a new destination. */
+function physicalPath(candidate: string): string {
+  const parent = dirname(candidate);
+  if (lstatSync(candidate, { throwIfNoEntry: false }) || parent === candidate) {
+    return realpathSync(candidate);
+  }
+  return join(physicalPath(parent), basename(candidate));
+}
 
 /** True when `candidate` is `root` or lies below it. Both must already be resolved. */
 function isInside(root: string, candidate: string): boolean {
@@ -16,11 +25,17 @@ function isInside(root: string, candidate: string): boolean {
  * resolves to an absolute or `..` destination is rejected before a byte lands
  * rather than audited afterwards. The comparison is path-segment aware: a
  * sibling directory that merely shares a string prefix with a root is outside.
+ * Existing ancestors are resolved too, so escaping and dangling symlinks cannot
+ * redirect a destination even when its final directories do not yet exist.
  */
 export function assertWithin(candidate: string, roots: readonly string[]): string {
   const resolved = resolve(candidate);
   if (!roots.some((root) => isInside(resolve(root), resolved))) {
     throw new Error(`refusing path outside the asset tree: ${resolved}`);
+  }
+  const physical = physicalPath(resolved);
+  if (!roots.some((root) => isInside(physicalPath(resolve(root)), physical))) {
+    throw new Error(`refusing symlink path outside the asset tree: ${resolved}`);
   }
   return resolved;
 }
