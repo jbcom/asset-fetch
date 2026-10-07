@@ -694,6 +694,14 @@ describe("extractArchives", () => {
     expect(sevenZipCalls[1]?.args).toEqual(expect.arrayContaining(["x", "-y"]));
   });
 
+  test("extracts multiple archives in filename order", async () => {
+    writeFileSync(join(archivesDir, "beta.zip"), "fake zip bytes");
+    writeFileSync(join(archivesDir, "alpha.zip"), "fake zip bytes");
+    useSpawnSync(() => ({ status: 0 }));
+    const result = await extractArchives(archivesDir, extractedDir);
+    expect(result).toEqual({ extracted: ["alpha", "beta"], failed: [] });
+  });
+
   test("extracts a .rar archive via node-unrar-js", async () => {
     // A syntactically-invalid rar is fine here: node-unrar-js will throw,
     // which exercises the catch-and-record-as-failed path — real behavior
