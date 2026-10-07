@@ -1,6 +1,6 @@
 {
   "name": "asset-fetch",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Typed CLI and library for finding, verifying, extracting, and curating game assets from itch.io, Poly Haven, and a local SQLite catalog.",
   "keywords": [
     "assets",
