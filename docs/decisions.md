@@ -59,6 +59,16 @@ because the package resolves paths and spawns archive tools. All selectors use m
 Node 26 is the local default. Verification also runs locally at the 22.16.0 floor.
 TypeScript is 7 (native) with `moduleResolution: bundler`; Vitest is 5.
 
+## Repository rulesets
+
+`scripts/apply-branch-ruleset.mjs` is the canonical OSS ruleset script, preserved
+verbatim except for argument defaults: `asset-fetch` and
+`CI / gate;title;Repository Policy / gate;Dependency Review / gate`.
+It is excluded from Biome so formatting does not diverge from the canonical source.
+The script applies main, Conventional Commit and release-tag integrity rules;
+it adds no Copilot review or Code Quality rule. Running it is an explicit
+repository administration action, separate from verification.
+
 ## Initial release automation
 
 Release, CD and Automerge remain disabled during the initial import. Their jobs
