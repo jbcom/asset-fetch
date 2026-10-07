@@ -13,6 +13,7 @@ jobs:
     # Do not check out or execute pull-request code. Only these two trusted,
     # generated sources can receive the organization automation credential.
     if: >-
+      false &&
       github.event.pull_request.draft == false &&
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.repo.full_name == github.repository &&

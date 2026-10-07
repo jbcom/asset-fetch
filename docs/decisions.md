@@ -3,18 +3,12 @@ title: Decisions
 description: Why asset-fetch is shaped the way it is.
 ---
 
-## 2026-10-07: published to npmjs as `asset-fetch`
+## 2026-10-07: unscoped npmjs name `asset-fetch`
 
-The package is open source under the MIT licence and publishes to npmjs under the unscoped name
-`asset-fetch`, which was free. The first release is 0.2.0. Earlier 0.1.x versions of the code came from
-a private registry under another name and are not on npmjs. Releases after 0.2.0 are cut by
-release-please and published from CI by OIDC trusted publishing with provenance.
-
-## Two earlier packages are folded in
-
-The CLI and library descend from a package named `assets-search`, which this repository was created
-from. A second package, `itch-assets`, held two safety modules that this one lacked; they were ported
-here (see below) and that package is retired. Nothing else was needed from it.
+The package is open source under the MIT licence and targets npmjs under the unscoped name
+`asset-fetch`, which was free. The planned first release is 0.2.0. Publication is a separate,
+owner-authorized step. Subsequent releases use release-please and OIDC trusted publishing
+with provenance.
 
 ## Path containment and key hygiene are part of the package
 
@@ -58,3 +52,10 @@ first npmjs release so no published API changes.
 `engines` is `>=24` with no ceiling and `@types/node` stays on 24. CI runs the full gate on Node 24 and
 Node 26 on Linux and on Node 26 on Windows, because the package resolves paths and spawns archive tools.
 TypeScript is 7 (native) with `moduleResolution: bundler`; Vitest is 5.
+
+## Initial release automation
+
+Release, CD and Automerge remain disabled during the initial import. Their jobs
+also have explicit false guards because GitHub cannot disable workflows absent
+from the default branch. The owner must remove those guards and enable the
+workflows when authorizing the first release. No initial tag or publish is automated.

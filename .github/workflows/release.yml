@@ -14,6 +14,8 @@ concurrency:
 
 jobs:
   release-please:
+    # Initial import: stay inert until the owner authorizes the first release.
+    if: ${{ false }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write

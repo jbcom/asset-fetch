@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>asset-fetch asset box</title>
+  <rect width="64" height="64" rx="12" fill="#123449"/>
+  <path d="M12 22 32 12 52 22v24L32 56 12 46Z" fill="#438cad"/>
+  <path d="m12 22 20 10 20-10M32 32v24" fill="none" stroke="#fff" stroke-width="4"/>
+</svg>
