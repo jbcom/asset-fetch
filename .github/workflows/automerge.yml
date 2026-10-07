@@ -13,7 +13,8 @@ jobs:
     # Do not check out or execute pull-request code. Only these two trusted,
     # generated sources can receive the organization automation credential.
     if: >-
-      false &&
+      vars.RELEASE_AUTOMATION_ENABLED == 'true' &&
+      github.repository_owner == 'jbcom' &&
       github.event.pull_request.draft == false &&
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
